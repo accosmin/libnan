@@ -209,7 +209,7 @@ solver_t::solver_t()
     register_parameter(parameter_t::make_scalar("solver::alpha", 0.0, LT, 1e-2, LT, 1.0));
     register_parameter(parameter_t::make_scalar("solver::beta", 0.0, LT, 0.9, LT, 1.0));
     register_parameter(parameter_t::make_scalar("solver::epsilon", 0.0, LE, 1e-10, LE, 1e-3));
-    register_parameter(parameter_t::make_scalar("solver::epsilon0", 0.0, LE, 1e-16, LE, 1e-3));
+    register_parameter(parameter_t::make_scalar("solver::epsilon0", 0.0, LE, 1e-32, LE, 1e-3));
     register_parameter(parameter_t::make_integer("solver::max_iters", 10, LE, 300, LE, 1000));
     register_parameter(parameter_t::make_integer("solver::max_lsearch_iters", 10, LE, 50, LE, 1000));
 }

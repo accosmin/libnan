@@ -30,7 +30,8 @@ void copy(const tensor_size_t isrc, const tensor_size_t idst, ttensor& tensor)
 } // namespace detail
 
 ///
-/// \brief remove all sub-tensors indexed by the first dimension flagged by the given operator.
+/// \brief remove all sub-tensors indexed by the first dimension flagged by the given operator
+///     and return the number of sub-tensors that are kept.
 ///
 /// NB: the remaining ones are compacted starting the begining and their number is returned.
 /// NB: no allocation is performed.
@@ -39,22 +40,25 @@ template <class toperator, class... ttensors>
 auto remove_if(const toperator& op, ttensors&&... tensors) ->
     typename std::enable_if_t<(is_tensor_v<std::remove_reference_t<ttensors>> && ...), tensor_size_t>
 {
-    const auto size = detail::size(std::forward<ttensors>(tensors)...);
+    const auto last = detail::size(std::forward<ttensors>(tensors)...);
 
-    auto last = tensor_size_t{0};
-    for (; last < size && !op(last); ++last)
+    auto first = tensor_size_t{0};
+    for (; first != last && !op(first); ++first)
     {
     }
 
-    for (auto curr = last; curr < size; ++curr)
+    if (first != last)
     {
-        if (!op(curr))
+        for (tensor_size_t i = first; ++i != last;)
         {
-            (detail::copy(curr, last, tensors), ...);
-            ++last;
+            if (!op(i))
+            {
+                (detail::copy(i, first, tensors), ...);
+                ++first;
+            }
         }
     }
 
-    return last;
+    return first;
 }
 } // namespace nano

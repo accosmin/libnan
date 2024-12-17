@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/solver/bundle.h>
+#include <solver/bundle/bundle.h>
 
 namespace nano
 {
@@ -31,11 +31,15 @@ class NANO_PUBLIC csearch_t
 public:
     struct point_t
     {
+        explicit point_t(tensor_size_t dims = 0);
+
         scalar_t       m_t{1.0};                         ///<
         csearch_status m_status{csearch_status::failed}; ///<
         vector_t       m_y;                              ///<
         vector_t       m_gy;                             ///<
         scalar_t       m_fy{0.0};                        ///<
+        vector_t       m_gyhat;                          ///<
+        scalar_t       m_fyhat{0.0};                     ///<
     };
 
     ///

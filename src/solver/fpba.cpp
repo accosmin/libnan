@@ -1,6 +1,5 @@
-#include <nano/solver/bundle.h>
-#include <nano/solver/csearch.h>
-#include <nano/solver/proximity.h>
+#include <solver/bundle/csearch.h>
+#include <solver/bundle/proximal.h>
 #include <solver/fpba.h>
 
 using namespace nano;
@@ -14,7 +13,7 @@ base_solver_fpba_t<tsequence>::base_solver_fpba_t()
     const auto prefix = scat("solver::", type_id());
     bundle_t::config(*this, prefix);
     csearch_t::config(*this, prefix);
-    proximity_t::config(*this, prefix);
+    proximal_t::config(*this, prefix);
 }
 
 template <class tsequence>
@@ -31,10 +30,10 @@ solver_state_t base_solver_fpba_t<tsequence>::do_minimize(const function_t& func
     const auto max_evals = parameter("solver::max_evals").template value<tensor_size_t>();
     const auto epsilon   = parameter("solver::epsilon").template value<scalar_t>();
 
-    auto state     = solver_state_t{function, x0};
-    auto bundle    = bundle_t::make(state, *this, prefix);
-    auto csearch   = csearch_t::make(function, *this, prefix);
-    auto proximity = proximity_t::make(state, *this, prefix);
+    auto state    = solver_state_t{function, x0};
+    auto bundle   = bundle_t::make(state, *this, prefix);
+    auto csearch  = csearch_t::make(function, *this, prefix);
+    auto proximal = proximal_t::make(state, *this, prefix);
 
     auto gx       = vector_t{x0.size()};
     auto sequence = tsequence{state};
@@ -43,7 +42,7 @@ solver_state_t base_solver_fpba_t<tsequence>::do_minimize(const function_t& func
     {
         state.update_if_better(z, gz, fz);
 
-        // nesterov's momentum on the proximity center
+        // nesterov's momentum on the proximal center
         const auto& x  = sequence.update(z);
         const auto  fx = function.vgrad(x, gx);
         bundle.moveto(x, gx, fx);
@@ -57,7 +56,8 @@ solver_state_t base_solver_fpba_t<tsequence>::do_minimize(const function_t& func
 
     while (function.fcalls() + function.gcalls() < max_evals)
     {
-        const auto& [t, status, y, gy, fy] = csearch.search(bundle, proximity.miu(), max_evals, epsilon, logger);
+        [[maybe_unused]] const auto& [t, status, y, gy, fy, ghat, fhat] =
+            csearch.search(bundle, proximal.miu(), max_evals, epsilon, logger);
 
         const auto iter_ok   = status != csearch_status::failed;
         const auto converged = status == csearch_status::converged;
@@ -68,7 +68,7 @@ solver_state_t base_solver_fpba_t<tsequence>::do_minimize(const function_t& func
 
         if (status == csearch_status::descent_step)
         {
-            proximity.update(t, bundle.x(), y, bundle.gx(), gy);
+            proximal.update(t, bundle.x(), y, bundle.gx(), gy);
             apply_nesterov_sequence(y, gy, fy);
         }
         else if (status == csearch_status::cutting_plane_step)
