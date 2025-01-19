@@ -33,7 +33,7 @@ auto split_pair(const string_t& value)
 
 auto& update(const string_t& name, parameter_t::enum_t& param, string_t value)
 {
-    critical(std::find(param.m_domain.begin(), param.m_domain.end(), value) == param.m_domain.end(), "parameter (",
+    critical(std::find(param.m_domain.begin(), param.m_domain.end(), value) != param.m_domain.end(), "parameter (",
              name, "): out of domain enumeration value, !('", value, "' in [", scat(param.m_domain), "])");
 
     param.m_value = std::move(value);
@@ -45,8 +45,8 @@ auto& update(const string_t& name, parameter_t::range_t<tscalar>& param, tvalue 
 {
     const auto value = static_cast<tscalar>(value_);
 
-    critical(!::nano::isfinite(value) || !::check(param.m_mincomp, param.m_min, value) ||
-                 !::check(param.m_maxcomp, value, param.m_max),
+    critical(::nano::isfinite(value) && ::check(param.m_mincomp, param.m_min, value) &&
+                 ::check(param.m_maxcomp, value, param.m_max),
              "parameter (", name, "): out of domain scalar value, !(", param.m_min, ::name(param.m_mincomp), value_,
              ::name(param.m_maxcomp), param.m_max, ")");
 
@@ -60,8 +60,8 @@ auto& update(const string_t& name, parameter_t::pair_range_t<tscalar>& param, tv
     const auto value1 = static_cast<tscalar>(value1_);
     const auto value2 = static_cast<tscalar>(value2_);
 
-    critical(!::nano::isfinite(value1) || !::nano::isfinite(value2) || !::check(param.m_mincomp, param.m_min, value1) ||
-                 !::check(param.m_valcomp, value1, value2) || !::check(param.m_maxcomp, value2, param.m_max),
+    critical(::nano::isfinite(value1) && ::nano::isfinite(value2) && ::check(param.m_mincomp, param.m_min, value1) &&
+                 ::check(param.m_valcomp, value1, value2) && ::check(param.m_maxcomp, value2, param.m_max),
              "parameter (", name, "): out of domain pair of scalar values, !(", param.m_min, ::name(param.m_mincomp),
              value1_, ::name(param.m_valcomp), value2_, ::name(param.m_maxcomp), param.m_max, ")");
 
@@ -75,7 +75,7 @@ void update(const string_t& name, parameter_t::storage_t& storage, tvalue value)
 {
     std::visit(overloaded{[&](parameter_t::irange_t& param) { ::update(name, param, value); },
                           [&](parameter_t::frange_t& param) { ::update(name, param, value); },
-                          [&](auto&) { critical0("parameter (", name, "): cannot set value (", value, ")!"); }},
+                          [&](auto&) { raise("parameter (", name, "): cannot set value (", value, ")!"); }},
                storage);
 }
 
@@ -87,7 +87,7 @@ void update(const string_t& name, parameter_t::storage_t& storage, std::tuple<tv
 
     std::visit(overloaded{[&](parameter_t::iprange_t& param) { ::update(name, param, value1, value2); },
                           [&](parameter_t::fprange_t& param) { ::update(name, param, value1, value2); }, [&](auto&)
-                          { critical0("parameter (", name, "): cannot set value (", value1, ",", value2, ")!"); }},
+                          { raise("parameter (", name, "): cannot set value (", value1, ",", value2, ")!"); }},
                storage);
 }
 
@@ -110,11 +110,8 @@ auto read(const string_t& name, std::istream& stream, parameter_t::range_t<tscal
     uint32_t minLE = 0U;
     uint32_t maxLE = 0U;
 
-    critical(!::nano::read(stream, value) ||     // LCOV_EXCL_LINE
-                 !::nano::read(stream, min) ||   // LCOV_EXCL_LINE
-                 !::nano::read(stream, max) ||   // LCOV_EXCL_LINE
-                 !::nano::read(stream, minLE) || // LCOV_EXCL_LINE
-                 !::nano::read(stream, maxLE),   // LCOV_EXCL_LINE
+    critical(::nano::read(stream, value) && ::nano::read(stream, min) && ::nano::read(stream, max) &&
+                 ::nano::read(stream, minLE) && ::nano::read(stream, maxLE),
              "parameter (", name, "): failed to read from stream!");
 
     return parameter_t::range_t<tscalar>{value, min, max, make_comp(minLE), make_comp(maxLE)};
@@ -131,13 +128,9 @@ auto read(const string_t& name, std::istream& stream, parameter_t::pair_range_t<
     uint32_t maxLE   = 0U;
     uint32_t valueLE = 0U;
 
-    critical(!::nano::read(stream, value1) ||     // LCOV_EXCL_LINE
-                 !::nano::read(stream, value2) || // LCOV_EXCL_LINE
-                 !::nano::read(stream, min) ||    // LCOV_EXCL_LINE
-                 !::nano::read(stream, max) ||    // LCOV_EXCL_LINE
-                 !::nano::read(stream, minLE) ||  // LCOV_EXCL_LINE
-                 !::nano::read(stream, maxLE) ||  // LCOV_EXCL_LINE
-                 !::nano::read(stream, valueLE),  // LCOV_EXCL_LINE
+    critical(::nano::read(stream, value1) && ::nano::read(stream, value2) && ::nano::read(stream, min) &&
+                 ::nano::read(stream, max) && ::nano::read(stream, minLE) && ::nano::read(stream, maxLE) &&
+                 ::nano::read(stream, valueLE),
              "parameter (", name, "): failed to read from stream!");
 
     return parameter_t::pair_range_t<tscalar>{value1,          value2, min, max, make_comp(minLE), make_comp(valueLE),
@@ -147,26 +140,19 @@ auto read(const string_t& name, std::istream& stream, parameter_t::pair_range_t<
 template <class tscalar>
 void write(const string_t& name, std::ostream& stream, int32_t type, const parameter_t::range_t<tscalar>& param)
 {
-    critical(!::nano::write(stream, type) || !::nano::write(stream, name) ||
-                 !::nano::write(stream, param.m_value) ||              // LCOV_EXCL_LINE
-                 !::nano::write(stream, param.m_min) ||                // LCOV_EXCL_LINE
-                 !::nano::write(stream, param.m_max) ||                // LCOV_EXCL_LINE
-                 !::nano::write(stream, make_flag(param.m_mincomp)) || // LCOV_EXCL_LINE
-                 !::nano::write(stream, make_flag(param.m_maxcomp)),   // LCOV_EXCL_LINE
+    critical(::nano::write(stream, type) && ::nano::write(stream, name) && ::nano::write(stream, param.m_value) &&
+                 ::nano::write(stream, param.m_min) && ::nano::write(stream, param.m_max) &&
+                 ::nano::write(stream, make_flag(param.m_mincomp)) && ::nano::write(stream, make_flag(param.m_maxcomp)),
              "parameter (", name, "): failed to write to stream!");
 }
 
 template <class tscalar>
 void write(const string_t& name, std::ostream& stream, int32_t type, const parameter_t::pair_range_t<tscalar>& param)
 {
-    critical(!::nano::write(stream, type) || !::nano::write(stream, name) ||
-                 !::nano::write(stream, param.m_value1) ||             // LCOV_EXCL_LINE
-                 !::nano::write(stream, param.m_value2) ||             // LCOV_EXCL_LINE
-                 !::nano::write(stream, param.m_min) ||                // LCOV_EXCL_LINE
-                 !::nano::write(stream, param.m_max) ||                // LCOV_EXCL_LINE
-                 !::nano::write(stream, make_flag(param.m_mincomp)) || // LCOV_EXCL_LINE
-                 !::nano::write(stream, make_flag(param.m_maxcomp)) || // LCOV_EXCL_LINE
-                 !::nano::write(stream, make_flag(param.m_valcomp)),   // LCOV_EXCL_LINE
+    critical(::nano::write(stream, type) && ::nano::write(stream, name) && ::nano::write(stream, param.m_value1) &&
+                 ::nano::write(stream, param.m_value2) && ::nano::write(stream, param.m_min) &&
+                 ::nano::write(stream, param.m_max) && ::nano::write(stream, make_flag(param.m_mincomp)) &&
+                 ::nano::write(stream, make_flag(param.m_maxcomp)) && ::nano::write(stream, make_flag(param.m_valcomp)),
              "parameter (", name, "): failed to write to stream!");
 }
 
@@ -313,7 +299,7 @@ parameter_t& parameter_t::operator=(string_t value)
                               const auto [value1, value2] = ::split_pair(value);
                               ::update(m_name, param, std::stod(value1), std::stod(value2));
                           },
-                          [&](auto&) { critical0("parameter (", m_name, "): cannot set value (", value, ")!"); }},
+                          [&](auto&) { raise("parameter (", m_name, "): cannot set value (", value, ")!"); }},
                m_storage);
     return *this;
 }
@@ -339,7 +325,7 @@ parameter_t& parameter_t::operator=(std::tuple<scalar_t, scalar_t> value)
 std::istream& parameter_t::read(std::istream& stream)
 {
     int32_t type = -1;
-    critical(!::nano::read(stream, type) || !::nano::read(stream, m_name), "parameter (", m_name,
+    critical(::nano::read(stream, type) && ::nano::read(stream, m_name), "parameter (", m_name,
              "): failed to read from stream!");
 
     switch (type)
@@ -353,9 +339,8 @@ std::istream& parameter_t::read(std::istream& stream)
     {
         string_t  value;
         strings_t domain;
-        critical(!::nano::read(stream, value) ||    // LCOV_EXCL_LINE
-                     !::nano::read(stream, domain), // LCOV_EXCL_LINE
-                 "parameter (", m_name, "): failed to read from stream!");
+        critical(::nano::read(stream, value) && ::nano::read(stream, domain), "parameter (", m_name,
+                 "): failed to read from stream!");
         m_storage = enum_t{value, domain};
     }
     break;
@@ -366,11 +351,11 @@ std::istream& parameter_t::read(std::istream& stream)
     case 5:
     {
         string_t value;
-        critical(!::nano::read(stream, value), "parameter (", m_name, "): failed to read from stream!");
+        critical(::nano::read(stream, value), "parameter (", m_name, "): failed to read from stream!");
         m_storage = value;
     }
     break;
-    default: critical0("parameter (", m_name, "): failed to read from stream (type=", type, ")!");
+    default: raise("parameter (", m_name, "): failed to read from stream (type=", type, ")!");
     }
 
     return stream;
@@ -381,15 +366,15 @@ std::ostream& parameter_t::write(std::ostream& stream) const
     std::visit(overloaded{[&](const std::monostate&)
                           {
                               const int32_t type = -1;
-                              critical(!::nano::write(stream, type) || !::nano::write(stream, m_name), "parameter (",
+                              critical(::nano::write(stream, type) && ::nano::write(stream, m_name), "parameter (",
                                        m_name, "): failed to write to stream!");
                           },
                           [&](const enum_t& param)
                           {
                               const int32_t type = 0;
-                              critical(!::nano::write(stream, type) || !::nano::write(stream, m_name) ||
-                                           !::nano::write(stream, param.m_value) || // LCOV_EXCL_LINE
-                                           !::nano::write(stream, param.m_domain),  // LCOV_EXCL_LINE
+                              critical(::nano::write(stream, type) && ::nano::write(stream, m_name) &&
+                                           ::nano::write(stream, param.m_value) &&
+                                           ::nano::write(stream, param.m_domain),
                                        "parameter (", m_name, "): failed to write to stream!");
                           },
                           [&](const irange_t& param) { ::write(m_name, stream, 1, param); },
@@ -399,8 +384,8 @@ std::ostream& parameter_t::write(std::ostream& stream) const
                           [&](const string_t& param)
                           {
                               const int32_t type = 5;
-                              critical(!::nano::write(stream, type) || !::nano::write(stream, m_name) ||
-                                           !::nano::write(stream, param),
+                              critical(::nano::write(stream, type) && ::nano::write(stream, m_name) &&
+                                           ::nano::write(stream, param),
                                        "parameter (", m_name, "): failed to write to stream!");
                           }},
                m_storage);
@@ -410,7 +395,7 @@ std::ostream& parameter_t::write(std::ostream& stream) const
 
 void parameter_t::logical_error() const
 {
-    critical0("parameter (", m_name, "): logical error, unexpected parameter type!");
+    raise("parameter (", m_name, "): logical error, unexpected parameter type!");
 }
 
 bool nano::operator==(const parameter_t& lhs, const parameter_t& rhs)

@@ -59,9 +59,9 @@ std::istream& linear_t::read(std::istream& stream)
 {
     learner_t::read(stream);
 
-    critical(!::nano::read(stream, m_bias) || !::nano::read(stream, m_weights), "linear: failed to read from stream!");
+    critical(::nano::read(stream, m_bias) && ::nano::read(stream, m_weights), "linear: failed to read from stream!");
 
-    critical(m_bias.size() != m_weights.rows(), "linear: parameter mismatch!");
+    critical(m_bias.size() == m_weights.rows(), "linear: parameter mismatch!");
 
     return stream;
 }
@@ -70,7 +70,7 @@ std::ostream& linear_t::write(std::ostream& stream) const
 {
     learner_t::write(stream);
 
-    critical(!::nano::write(stream, m_bias) || !::nano::write(stream, m_weights), "linear: failed to write to stream!");
+    critical(::nano::write(stream, m_bias) && ::nano::write(stream, m_weights), "linear: failed to write to stream!");
 
     return stream;
 }

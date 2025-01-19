@@ -23,17 +23,12 @@ public:
     ///
     /// \brief returns the penalty term.
     ///
-    auto penalty() const { return m_penalty; }
+    scalar_t penalty() const { return m_penalty; }
 
     ///
-    /// \brief returns the constrained optimization objective.
+    /// \brief returns the original constrained optimization objective.
     ///
     const function_t& function() const { return m_function; }
-
-    ///
-    /// \brief returns the set of registered constraints.
-    ///
-    const constraints_t& constraints() const override { return m_function.constraints(); }
 
 private:
     // attributes

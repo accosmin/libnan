@@ -64,20 +64,18 @@ struct solver_pdsgm_t::model_t
 solver_pdsgm_t::solver_pdsgm_t(string_t id)
     : solver_t(std::move(id))
 {
-    type(solver_type::non_monotonic);
-
     static constexpr auto fmax = std::numeric_limits<scalar_t>::max();
 
     register_parameter(parameter_t::make_scalar("solver::pdsgm::D", 0.0, LT, 1e+0, LE, fmax));
-    register_parameter(parameter_t::make_integer("solver::pdsgm::patience", 10, LE, 1000, LE, 1e+6));
 }
 
 solver_state_t solver_pdsgm_t::do_minimize(const function_t& function, const vector_t& x0, const logger_t& logger) const
 {
-    const auto epsilon   = parameter("solver::epsilon").value<scalar_t>();
+    warn_nonsmooth(function, logger);
+    warn_constrained(function, logger);
+
     const auto max_evals = parameter("solver::max_evals").value<tensor_size_t>();
     const auto D         = parameter("solver::pdsgm::D").value<scalar_t>();
-    const auto patience  = parameter("solver::pdsgm::patience").value<tensor_size_t>();
 
     auto state = solver_state_t{function, x0}; // NB: keeps track of the best state
 
@@ -89,9 +87,8 @@ solver_state_t solver_pdsgm_t::do_minimize(const function_t& function, const vec
     {
         if (gx.lpNorm<Eigen::Infinity>() < std::numeric_limits<scalar_t>::epsilon())
         {
-            const auto iter_ok   = state.valid();
-            const auto converged = true;
-            solver_t::done(state, iter_ok, converged, logger);
+            const auto iter_ok = state.valid();
+            solver_t::done_gradient_test(state, iter_ok, logger);
             break;
         }
 
@@ -100,12 +97,11 @@ solver_state_t solver_pdsgm_t::do_minimize(const function_t& function, const vec
         model.update(lambda, x, gx);
 
         x             = model.xk1(betah);
-        const auto fx = function.vgrad(x, gx);
+        const auto fx = function(x, gx);
         state.update_if_better(x, gx, fx); // FIXME: option to obtain only the gradient without the function value!
 
-        const auto iter_ok   = std::isfinite(fx);
-        const auto converged = state.value_test(patience) < epsilon;
-        if (solver_t::done(state, iter_ok, converged, logger))
+        const auto iter_ok = std::isfinite(fx);
+        if (solver_t::done_value_test(state, iter_ok, logger))
         {
             break;
         }

@@ -50,21 +50,21 @@ struct NANO_PUBLIC functional_t
 ///
 /// \brief equality constraint: h(x) = ||x - origin||^2 - radius^2 = 0
 ///
-struct euclidean_ball_equality_t : euclidean_ball_t
+struct NANO_PUBLIC euclidean_ball_equality_t : euclidean_ball_t
 {
 };
 
 ///
 /// \brief inequality constraint: g(x) = ||x - origin||^2 - radius^2 <= 0
 ///
-struct euclidean_ball_inequality_t : euclidean_ball_t
+struct NANO_PUBLIC euclidean_ball_inequality_t : euclidean_ball_t
 {
 };
 
 ///
 /// \brief equality constraint: h(x) = x(dimension) - constant = 0
 ///
-struct constant_t
+struct NANO_PUBLIC constant_t
 {
     scalar_t      m_value{0.0};
     tensor_size_t m_dimension{-1};
@@ -73,49 +73,49 @@ struct constant_t
 ///
 /// \brief inequality constraint: g(x) = constant - x(dimension) <= 0
 ///
-struct minimum_t : constant_t
+struct NANO_PUBLIC minimum_t : constant_t
 {
 };
 
 ///
 /// \brief inequality constraint: g(x) = x(dimension) - constant <= 0
 ///
-struct maximum_t : constant_t
+struct NANO_PUBLIC maximum_t : constant_t
 {
 };
 
 ///
 /// \brief equality constraint: h(x) = q.dot(x) + r = 0
 ///
-struct linear_equality_t : linear_t
+struct NANO_PUBLIC linear_equality_t : linear_t
 {
 };
 
 ///
 /// \brief inequality constraint: g(x) = q.dot(x) + r <= 0
 ///
-struct linear_inequality_t : linear_t
+struct NANO_PUBLIC linear_inequality_t : linear_t
 {
 };
 
 ///
 /// \brief equality constraint: h(x) = 1/2 * x.dot(P * x) + q.dot(x) + r = 0
 ///
-struct quadratic_equality_t : quadratic_t
+struct NANO_PUBLIC quadratic_equality_t : quadratic_t
 {
 };
 
 ///
 /// \brief inequality constraint: q(x) = 1/2 * x.dot(P * x) + q.dot(x) + r = 0
 ///
-struct quadratic_inequality_t : quadratic_t
+struct NANO_PUBLIC quadratic_inequality_t : quadratic_t
 {
 };
 
 ///
 /// \brief equality constraint: h(x) = 0
 ///
-struct functional_equality_t : functional_t
+struct NANO_PUBLIC functional_equality_t : functional_t
 {
     using functional_t::functional_t; // NOLINT(cppcoreguidelines-rvalue-reference-param-not-moved)
 };
@@ -123,7 +123,7 @@ struct functional_equality_t : functional_t
 ///
 /// \brief inequality constraint: g(x) <= 0
 ///
-struct functional_inequality_t : functional_t
+struct NANO_PUBLIC functional_inequality_t : functional_t
 {
     using functional_t::functional_t; // NOLINT(cppcoreguidelines-rvalue-reference-param-not-moved)
 };
@@ -134,11 +134,17 @@ struct functional_inequality_t : functional_t
 ///
 /// NB: the default constraint is by construction invalid.
 ///
-using constraint_t = std::variant<constraint::constant_t, constraint::minimum_t, constraint::maximum_t,
-                                  constraint::euclidean_ball_equality_t, constraint::euclidean_ball_inequality_t,
-                                  constraint::linear_equality_t, constraint::linear_inequality_t,
-                                  constraint::quadratic_equality_t, constraint::quadratic_inequality_t,
-                                  constraint::functional_equality_t, constraint::functional_inequality_t>;
+using constraint_t = std::variant<constraint::constant_t,                  ///<
+                                  constraint::minimum_t,                   ///<
+                                  constraint::maximum_t,                   ///<
+                                  constraint::euclidean_ball_equality_t,   ///<
+                                  constraint::euclidean_ball_inequality_t, ///<
+                                  constraint::linear_equality_t,           ///<
+                                  constraint::linear_inequality_t,         ///<
+                                  constraint::quadratic_equality_t,        ///<
+                                  constraint::quadratic_inequality_t,      ///<
+                                  constraint::functional_equality_t,       ///<
+                                  constraint::functional_inequality_t>;    ///<
 
 using constraints_t = std::vector<constraint_t>;
 
@@ -179,14 +185,19 @@ NANO_PUBLIC bool compatible(const constraint_t&, const function_t&);
 NANO_PUBLIC bool is_equality(const constraint_t&);
 
 ///
+/// \brief returns true if the given constraint is a linear (equality or inequality) constraint.
+///
+NANO_PUBLIC bool is_linear(const constraint_t&);
+
+///
 /// \brief returns the number of equality constraints.
 ///
-NANO_PUBLIC tensor_size_t count_equalities(const function_t&);
-NANO_PUBLIC tensor_size_t count_equalities(const constraints_t&);
+NANO_PUBLIC tensor_size_t n_equalities(const function_t&);
+NANO_PUBLIC tensor_size_t n_equalities(const constraints_t&);
 
 ///
 /// \brief returns the number of inequality constraints.
 ///
-NANO_PUBLIC tensor_size_t count_inequalities(const function_t&);
-NANO_PUBLIC tensor_size_t count_inequalities(const constraints_t&);
+NANO_PUBLIC tensor_size_t n_inequalities(const function_t&);
+NANO_PUBLIC tensor_size_t n_inequalities(const constraints_t&);
 } // namespace nano

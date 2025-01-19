@@ -25,15 +25,15 @@ param_space_t::param_space_t(string_t name, param_space_t::type type_, tensor1d_
     , m_min(make_min(m_grid_values))
     , m_max(make_max(m_grid_values))
 {
-    critical(m_grid_values.size() < 2, "parameter space [", m_name, "]: at least two grid values must be given!");
+    critical(m_grid_values.size() >= 2, "parameter space [", m_name, "]: at least two grid values must be given!");
 
-    critical(!std::is_sorted(std::begin(m_grid_values), std::end(m_grid_values)), "parameter space [", m_name,
+    critical(std::is_sorted(std::begin(m_grid_values), std::end(m_grid_values)), "parameter space [", m_name,
              "]: the grid values must be sorted!");
 
-    critical(std::unique(std::begin(m_grid_values), std::end(m_grid_values)) != std::end(m_grid_values),
+    critical(std::unique(std::begin(m_grid_values), std::end(m_grid_values)) == std::end(m_grid_values),
              "parameter space [", m_name, "]: the grid values must be distinct!");
 
-    critical(m_type == type::log10 && *std::min_element(std::begin(m_grid_values), std::end(m_grid_values)) <
+    critical(m_type != type::log10 || *std::min_element(std::begin(m_grid_values), std::end(m_grid_values)) >=
                                           std::numeric_limits<scalar_t>::epsilon(),
              "parameter space [", m_name,
              "]: the grid values must be strictly positive if using the logarithmic scale!");
@@ -41,7 +41,7 @@ param_space_t::param_space_t(string_t name, param_space_t::type type_, tensor1d_
 
 scalar_t param_space_t::to_surrogate(const scalar_t value) const
 {
-    critical(value < m_min || value > m_max, "parameter space [", m_name, "]: cannot map value (", value,
+    critical(value >= m_min && value <= m_max, "parameter space [", m_name, "]: cannot map value (", value,
              ") outside the parameter grid range [", m_min, ",", m_max, "]!");
 
     switch (m_type)

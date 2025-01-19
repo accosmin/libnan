@@ -1,6 +1,6 @@
-#include "fixture/lsearch0.h"
-#include "fixture/lsearchk.h"
-#include "fixture/solver.h"
+#include <fixture/lsearch0.h>
+#include <fixture/lsearchk.h>
+#include <fixture/solver.h>
 #include <iomanip>
 #include <solver/quasi.h>
 
@@ -43,7 +43,7 @@ UTEST_BEGIN_MODULE(test_solver_smooth)
 
 UTEST_CASE(default_solvers)
 {
-    check_solvers_on_smooth_functions(make_solver_ids(), 1, 4);
+    check_minimize(make_solver_ids(), function_t::make({1, 4, convexity::yes, smoothness::yes, 100}));
 }
 
 UTEST_CASE(best_solvers_with_lsearches_on_smooth)
@@ -91,7 +91,7 @@ UTEST_CASE(best_solvers_with_lsearches_on_smooth)
 
                         log_info(std::setprecision(10), function->name(), ": solver=", solver_id,
                                  ",lsearch0=", lsearch0_id, ",lsearchk=", lsearchk_id, ",fx=", state.fx(),
-                                 ",calls=", state.fcalls(), "|", state.gcalls(), ".");
+                                 ",calls=", state.fcalls(), "|", state.gcalls(), ".\n");
                     }
                 }
             }
@@ -107,7 +107,7 @@ UTEST_CASE(best_solvers_with_cgdescent_very_accurate_on_smooth)
 
         for (const auto& x0 : make_random_x0s(*function))
         {
-            auto config = minimize_config_t{}.max_evals(10000).epsilon(1e-10).expected_maximum_deviation(1e-9);
+            auto config = minimize_config_t{}.expected_maximum_deviation(1e-9);
             for (const auto& solver_id : make_best_smooth_solver_ids())
             {
                 UTEST_NAMED_CASE(scat(function->name(), "/", solver_id));
@@ -115,13 +115,15 @@ UTEST_CASE(best_solvers_with_cgdescent_very_accurate_on_smooth)
                 const auto solver = make_solver(solver_id);
                 UTEST_REQUIRE_NOTHROW(solver->lsearch0("cgdescent"));
                 UTEST_REQUIRE_NOTHROW(solver->lsearchk("cgdescent"));
+                solver->parameter("solver::max_evals") = 10000;
+                solver->parameter("solver::epsilon")   = 1e-10;
 
                 const auto state = check_minimize(*solver, *function, x0, config);
                 config.expected_minimum(state.fx());
 
                 log_info(std::setprecision(10), function->name(), ": solver=", solver_id,
                          ",lsearch0=cgdescent,lsearchk=cgdescent,fx=", state.fx(), ",calls=", state.fcalls(), "|",
-                         state.gcalls(), ".");
+                         state.gcalls(), ".\n");
             }
         }
     }

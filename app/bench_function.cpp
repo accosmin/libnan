@@ -25,13 +25,13 @@ void eval_func(const function_t& function, table_t& table)
     {
         const auto old_value = fx;
 
-        fx = old_value + function.vgrad(x);
+        fx = old_value + function(x);
     };
     const auto measure_grad = [&]()
     {
         const auto old_value = gx;
 
-        function.vgrad(x, g);
+        function(x, g);
         gx = old_value + g.lpNorm<Eigen::Infinity>();
     };
 

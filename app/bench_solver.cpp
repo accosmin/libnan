@@ -17,7 +17,7 @@ struct result_t
 {
     result_t() = default;
 
-    result_t(const solver_state_t& state, int64_t milliseconds)
+    result_t(const solver_state_t& state, const int64_t milliseconds)
         : m_value(state.fx())
         , m_gnorm(state.gradient_test())
         , m_status(state.status())
@@ -37,7 +37,7 @@ struct result_t
 
 struct solver_stats_t
 {
-    explicit solver_stats_t(size_t trials)
+    explicit solver_stats_t(const size_t trials)
         : m_values(static_cast<tensor_size_t>(trials))
         , m_gnorms(static_cast<tensor_size_t>(trials))
         , m_errors(static_cast<tensor_size_t>(trials))

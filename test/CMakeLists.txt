@@ -34,7 +34,6 @@ make_test(test_constrained NANO::solver)
 
 make_test(test_program_linear NANO::solver)
 make_test(test_program_quadratic NANO::solver)
-make_test(test_program_constraint NANO::program)
 
 make_test(test_lsearch NANO::solver)
 make_test(test_solver NANO::solver)

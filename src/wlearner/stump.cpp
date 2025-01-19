@@ -103,7 +103,7 @@ std::istream& stump_wlearner_t::read(std::istream& stream)
 {
     single_feature_wlearner_t::read(stream);
 
-    critical(!::nano::read(stream, m_threshold), "stump weak learner: failed to read from stream!");
+    critical(::nano::read(stream, m_threshold), "stump weak learner: failed to read from stream!");
 
     return stream;
 }
@@ -112,7 +112,7 @@ std::ostream& stump_wlearner_t::write(std::ostream& stream) const
 {
     single_feature_wlearner_t::write(stream);
 
-    critical(!::nano::write(stream, m_threshold), "stump weak learner: failed to write to stream!");
+    critical(::nano::write(stream, m_threshold), "stump weak learner: failed to write to stream!");
 
     return stream;
 }

@@ -69,7 +69,6 @@ solver_cgd_t::solver_cgd_t(string_t id)
     : solver_t(std::move(id))
 {
     lsearchk("cgdescent");
-    type(solver_type::line_search);
     parameter("solver::tolerance") = std::make_tuple(1e-4, 1e-1);
 
     register_parameter(parameter_t::make_scalar("solver::cgd::orthotest", 0, LT, 0.1, LT, 1));
@@ -77,20 +76,18 @@ solver_cgd_t::solver_cgd_t(string_t id)
 
 solver_state_t solver_cgd_t::do_minimize(const function_t& function, const vector_t& x0, const logger_t& logger) const
 {
+    solver_t::warn_nonsmooth(function, logger);
+    solver_t::warn_constrained(function, logger);
+
     const auto max_evals = parameter("solver::max_evals").value<tensor_size_t>();
-    const auto epsilon   = parameter("solver::epsilon").value<scalar_t>();
     const auto orthotest = parameter("solver::cgd::orthotest").value<scalar_t>();
 
-    auto cstate = solver_state_t{function, x0}; // current state
-    if (solver_t::done(cstate, true, cstate.gradient_test() < epsilon, logger))
-    {
-        return cstate;
-    }
-
+    auto cstate   = solver_state_t{function, x0}; // current state
+    auto pstate   = cstate;                       // previous state
     auto lsearch  = make_lsearch();
-    auto pstate   = cstate;     // previous state
     auto cdescent = vector_t{}; // current descent direction
     auto pdescent = vector_t{}; // previous descent direction
+
     while (function.fcalls() + function.gcalls() < max_evals)
     {
         // descent direction
@@ -118,9 +115,8 @@ solver_state_t solver_cgd_t::do_minimize(const function_t& function, const vecto
         pdescent = cdescent;
 
         // line-search
-        const auto iter_ok   = lsearch.get(cstate, cdescent, logger);
-        const auto converged = cstate.gradient_test() < epsilon;
-        if (solver_t::done(cstate, iter_ok, converged, logger))
+        const auto iter_ok = lsearch.get(cstate, cdescent, logger);
+        if (solver_t::done_gradient_test(cstate, iter_ok, logger))
         {
             break;
         }

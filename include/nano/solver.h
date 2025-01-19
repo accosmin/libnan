@@ -9,37 +9,6 @@ using rsolver_t  = std::unique_ptr<solver_t>;
 using rsolvers_t = std::vector<rsolver_t>;
 
 ///
-/// \brief classifies numerical optimization algorithms (solvers).
-///
-enum class solver_type : uint8_t
-{
-    ///< descent is guaranteed at each step using line-search along a descent direction.
-    ///< the constraints (if any) are ignored.
-    ///< recommended for smooth unconstrained optimization problems.
-    line_search,
-
-    ///< descent is not guaranteed at each step.
-    ///< the constraints (if any) and the line-search utilities are ignored.
-    ///< recommended for non-smooth unconstrained optimization problems.
-    non_monotonic,
-
-    ///< handles the given constrains.
-    ///< typically consists of solving a related unconstrained optimization in a loop.
-    ///< recommended for constrained optimization problems.
-    constrained,
-};
-
-template <>
-inline enum_map_t<solver_type> enum_string()
-{
-    return {
-        {  solver_type::line_search,   "line_search"},
-        {solver_type::non_monotonic, "non_monotonic"},
-        {  solver_type::constrained,   "constrained"}
-    };
-}
-
-///
 /// \brief interface for numerical optimization algorithms.
 ///
 /// NB: the resulting point for the unconstrained case (if enough iterations have been used) is either:
@@ -102,11 +71,6 @@ public:
     void more_precise(scalar_t epsilon_factor);
 
     ///
-    /// \brief returns the type of the optimization method.
-    ///
-    solver_type type() const;
-
-    ///
     /// \brief return the line-search initialization method.
     ///
     const lsearch0_t& lsearch0() const { return *m_lsearch0; }
@@ -117,8 +81,14 @@ public:
     const lsearchk_t& lsearchk() const { return *m_lsearchk; }
 
 protected:
-    void type(solver_type);
-    bool done(solver_state_t&, bool iter_ok, bool converged, const logger_t&) const;
+    bool done_value_test(solver_state_t&, bool iter_ok, const logger_t&) const;
+    bool done_gradient_test(solver_state_t&, bool iter_ok, const logger_t&) const;
+    bool done_specific_test(solver_state_t&, bool iter_ok, bool converged, const logger_t&) const;
+    bool done_kkt_optimality_test(solver_state_t&, bool iter_ok, const logger_t&) const;
+
+    void warn_nonconvex(const function_t&, const logger_t&) const;
+    void warn_nonsmooth(const function_t&, const logger_t&) const;
+    void warn_constrained(const function_t&, const logger_t&) const;
 
     lsearch_t        make_lsearch() const;
     static rsolver_t make_solver(const function_t&, scalar_t epsilon, tensor_size_t max_evals);
@@ -126,9 +96,10 @@ protected:
     virtual solver_state_t do_minimize(const function_t&, const vector_t& x0, const logger_t&) const = 0;
 
 private:
+    bool done(solver_state_t&, bool iter_ok, solver_status, const logger_t&) const;
+
     // attributes
-    rlsearch0_t m_lsearch0;                       ///<
-    rlsearchk_t m_lsearchk;                       ///<
-    solver_type m_type{solver_type::line_search}; ///<
+    rlsearch0_t m_lsearch0; ///<
+    rlsearchk_t m_lsearchk; ///<
 };
 } // namespace nano

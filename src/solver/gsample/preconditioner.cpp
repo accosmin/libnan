@@ -1,4 +1,4 @@
-#include <nano/program/util.h>
+#include <nano/function/util.h>
 #include <solver/gsample/preconditioner.h>
 
 using namespace nano;
@@ -69,8 +69,8 @@ void lbfgs_preconditioner_t::update(const sampler_t& sampler, const solver_state
         }
     }
 
-    assert(program::is_psd(m_W));
-    assert(program::is_psd(m_H));
+    assert(is_convex(m_W));
+    assert(is_convex(m_H));
 
     assert((m_W * m_H - matrix_t::identity(n, n)).lpNorm<Eigen::Infinity>() < 1e-9);
     assert((m_H * m_W - matrix_t::identity(n, n)).lpNorm<Eigen::Infinity>() < 1e-9);

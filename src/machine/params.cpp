@@ -50,14 +50,14 @@ params_t& params_t::tuner(const tuner_t& tuner)
 
 params_t& params_t::tuner(rtuner_t&& tuner)
 {
-    critical(!tuner, "params: unitialized tuner!");
+    critical(tuner, "params: unitialized tuner!");
     m_tuner = std::move(tuner);
     return *this;
 }
 
 params_t& params_t::tuner(const rtuner_t& tuner)
 {
-    critical(!tuner, "params: unitialized tuner!");
+    critical(tuner, "params: unitialized tuner!");
     m_tuner = tuner->clone();
     return *this;
 }
@@ -75,14 +75,14 @@ params_t& params_t::solver(const solver_t& solver)
 
 params_t& params_t::solver(rsolver_t&& solver)
 {
-    critical(!solver, "params: unitialized solver!");
+    critical(solver, "params: unitialized solver!");
     m_solver = std::move(solver);
     return *this;
 }
 
 params_t& params_t::solver(const rsolver_t& solver)
 {
-    critical(!solver, "params: unitialized solver!");
+    critical(solver, "params: unitialized solver!");
     m_solver = solver->clone();
     return *this;
 }
@@ -100,14 +100,14 @@ params_t& params_t::splitter(const splitter_t& splitter)
 
 params_t& params_t::splitter(rsplitter_t&& splitter)
 {
-    critical(!splitter, "params: unitialized splitter!");
+    critical(splitter, "params: unitialized splitter!");
     m_splitter = std::move(splitter);
     return *this;
 }
 
 params_t& params_t::splitter(const rsplitter_t& splitter)
 {
-    critical(!splitter, "params: unitialized splitter!");
+    critical(splitter, "params: unitialized splitter!");
     m_splitter = splitter->clone();
     return *this;
 }

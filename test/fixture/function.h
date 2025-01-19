@@ -126,8 +126,8 @@ using namespace nano;
         if (rfunction->convex())
         {
             auto       gx = vector_t{x.size()};
-            const auto fz = rfunction->vgrad(z);
-            const auto fx = rfunction->vgrad(x, gx);
+            const auto fz = (*rfunction)(z);
+            const auto fx = (*rfunction)(x, gx);
             UTEST_CHECK_GREATER_EQUAL(fz - fx + convex_subgradient_epsilon, gx.dot(z - x));
         }
     }

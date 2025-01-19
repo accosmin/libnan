@@ -2,26 +2,15 @@
 
 #include <nano/factory.h>
 #include <nano/function/constraint.h>
+#include <nano/function/enums.h>
+#include <nano/function/optimum.h>
+#include <nano/function/variable.h>
 #include <nano/string.h>
 
 namespace nano
 {
 class function_t;
 using rfunction_t = std::unique_ptr<function_t>;
-
-enum class convexity : uint8_t
-{
-    ignore,
-    yes,
-    no
-};
-
-enum class smoothness : uint8_t
-{
-    ignore,
-    yes,
-    no
-};
 
 ///
 /// \brief generic multi-dimensional function typically used as the objective of a numerical optimization problem.
@@ -84,30 +73,37 @@ public:
     scalar_t strong_convexity() const { return m_strong_convexity; }
 
     ///
+    /// \brief register a new constraint.
+    ///
+    /// NB: returns false if the constraint is neither valid nor compatible with the objective function.
+    ///
+    virtual bool constrain(constraint_t&&);
+
+    ///
+    /// \brief returns the set of registered constraints.
+    ///
+    const constraints_t& constraints() const;
+
+    ///
     /// \brief returns true if the given point satisfies all the stored constraints.
     ///
     bool valid(const vector_t& x) const;
 
     ///
-    /// \brief register a constraint.
+    /// \brief returns the number of equality constraints.
     ///
-    /// NB: returns false if the constraint is neither valid nor compatible with the objective function.
-    ///
-    bool constrain(constraint_t&&);
-    bool constrain(scalar_t min, scalar_t max);
-    bool constrain(scalar_t min, scalar_t max, tensor_size_t dimension);
-    bool constrain(const vector_t& min, const vector_t& max);
+    tensor_size_t n_equalities() const;
 
     ///
-    /// \brief returns the set of registered constraints.
+    /// \brief returns the number of inequality constraints.
     ///
-    virtual const constraints_t& constraints() const;
+    tensor_size_t n_inequalities() const;
 
     ///
     /// \brief evaluate the function's value at the given point
     ///     (and optionally its gradient or sub-gradient if not smooth).
     ///
-    scalar_t vgrad(vector_cmap_t x, vector_map_t gx = vector_map_t{}) const;
+    scalar_t operator()(vector_cmap_t x, vector_map_t gx = vector_map_t{}) const;
 
     ///
     /// \brief returns the number of function evaluation calls registered so far.
@@ -142,9 +138,35 @@ public:
     static rfunctions_t make(const config_t&, const std::regex& id_regex = std::regex(".+"));
 
     ///
-    /// \brief construct a test function with the given number of free dimensions and summands (if possible).
+    /// \brief construct a test function with the given number of free dimensions and summands (if applicable).
     ///
     virtual rfunction_t make(tensor_size_t dims, tensor_size_t summands) const;
+
+    ///
+    /// \brief change the global minimum (if known) and set the expected convergence status.
+    ///
+    bool optimum(vector_t);
+    bool optimum(scalar_t);
+    bool optimum(optimum_t::status);
+
+    ///
+    /// \brief return the global minimum (if known).
+    ///
+    const optimum_t& optimum() const;
+
+    ///
+    /// \brief construct an dimension-based indexed function useful for registering bound constraints like:
+    ///     lower <= x <= upper or
+    ///     A * x == b or
+    ///     G * x <= x.
+    ///
+    function_variable_t variable() { return {*this}; }
+
+    ///
+    /// \brief construct an dimension-based indexed function useful for registering bound constraints like:
+    ///     lower <= x[dimension] <= upper.
+    ///
+    function_variable_dimension_t variable(const tensor_size_t dimension) { return {dimension, *this}; }
 
 protected:
     void convex(convexity);
@@ -162,5 +184,6 @@ private:
     constraints_t         m_constraints;                ///< optional equality and inequality constraints
     mutable tensor_size_t m_fcalls{0};                  ///< number of function value evaluations
     mutable tensor_size_t m_gcalls{0};                  ///< number of function gradient evaluations
+    optimum_t             m_optimum;                    ///< optimum solution (if unique and known)
 };
 } // namespace nano

@@ -13,7 +13,7 @@ function_quadratic_t::function_quadratic_t(const tensor_size_t dims)
 
     convex(convexity::yes);
     smooth(smoothness::yes);
-    strong_convexity(nano::strong_convexity(m_A));
+    strong_convexity(::strong_convexity(m_A));
 }
 
 rfunction_t function_quadratic_t::clone() const

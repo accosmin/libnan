@@ -1,22 +1,22 @@
 #include <nano/function/penalty.h>
-#include <nano/solver/penalty.h>
+#include <solver/penalty.h>
 
 using namespace nano;
 
 solver_penalty_t::solver_penalty_t(string_t id)
     : solver_t(std::move(id))
 {
-    type(solver_type::constrained);
     register_parameter(parameter_t::make_scalar("solver::penalty::epsilonK", 0.0, LT, 0.5, LE, 1.0));
     register_parameter(parameter_t::make_scalar("solver::penalty::eta", 1.0, LT, 5.0, LE, 1e+3));
     register_parameter(parameter_t::make_scalar("solver::penalty::penalty0", 0.0, LT, 10.0, LE, 1e+3));
     register_parameter(parameter_t::make_integer("solver::penalty::max_outer_iters", 10, LE, 20, LE, 100));
+
+    parameter("solver::patience") = 2;
 }
 
 solver_state_t solver_penalty_t::minimize(penalty_function_t& penalty_function, const vector_t& x0,
                                           const logger_t& logger) const
 {
-    const auto epsilon    = parameter("solver::epsilon").value<scalar_t>();
     const auto max_evals  = parameter("solver::max_evals").value<tensor_size_t>();
     const auto eta        = parameter("solver::penalty::eta").value<scalar_t>();
     const auto epsilon0   = parameter("solver::penalty::epsilon0").value<scalar_t>();
@@ -43,9 +43,8 @@ solver_state_t solver_penalty_t::minimize(penalty_function_t& penalty_function, 
         }
 
         // check convergence
-        const auto converged = iter_ok && ::nano::converged(bstate, cstate, epsilon);
         bstate.update(cstate.x());
-        if (done(bstate, iter_ok, converged, logger))
+        if (done_value_test(bstate, iter_ok, logger))
         {
             break;
         }

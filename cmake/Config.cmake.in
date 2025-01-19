@@ -1,6 +1,6 @@
 @PACKAGE_INIT@
 
-set(_@CMAKE_PROJECT_NAME@_supported_components core function program solver machine linear)
+set(_@CMAKE_PROJECT_NAME@_supported_components core function solver machine linear)
 
 foreach(_comp ${@CMAKE_PROJECT_NAME@_FIND_COMPONENTS})
     if (NOT _comp IN_LIST _@CMAKE_PROJECT_NAME@_supported_components)

@@ -71,8 +71,8 @@ string_t cmdresult_t::get(const std::string_view name) const
 {
     // FIXME: no need to create a string when moving to C++20!
     const auto it = m_values.find(string_t{name});
-    critical(it == m_values.end(), "cmdline: unrecognized option [", name, "]");
-    critical(!it->second.has_value(), "cmdline: no value provided for option [", name, "]");
+    critical(it != m_values.end(), "cmdline: unrecognized option [", name, "]");
+    critical(it->second.has_value(), "cmdline: no value provided for option [", name, "]");
     return it->second.value();
 }
 
@@ -141,17 +141,17 @@ void cmdline_t::add(string_t keywords, string_t description, string_t default_va
 
 void cmdline_t::add(cmdoption_t option)
 {
-    critical(option.m_keywords.empty(), "cmdline: option cannot be empty");
-    critical(option.m_description.empty(), "cmdline: description cannot be empty");
+    critical(!option.m_keywords.empty(), "cmdline: option cannot be empty");
+    critical(!option.m_description.empty(), "cmdline: description cannot be empty");
 
     for (auto tokenizer = tokenizer_t{option.m_keywords, ","}; tokenizer; ++tokenizer)
     {
         const auto name = tokenizer.get();
-        critical(!valid_option_name(name), "cmdline: option '", name,
+        critical(valid_option_name(name), "cmdline: option '", name,
                  "' must start with either a single or a double dash");
 
         const auto uniq = m_values.emplace(name, cmdvalue_t{option.m_default_value, m_options.size()}).second;
-        critical(!uniq, "cmdline: duplicated option '", name, "'");
+        critical(uniq, "cmdline: duplicated option '", name, "'");
     }
 
     m_options.emplace_back(std::move(option));
@@ -166,7 +166,7 @@ cmdresult_t cmdline_t::process(const int argc, const char* argv[]) const
         const auto name = string_t{argv[i]};
         assert(!name.empty());
 
-        critical(!valid_option_name(name), "cmdline: expecting option name [", name,
+        critical(valid_option_name(name), "cmdline: expecting option name [", name,
                  "] to start with either a single or a double dash");
 
         const auto itval = m_values.find(name);

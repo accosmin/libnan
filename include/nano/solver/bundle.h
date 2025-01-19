@@ -1,7 +1,7 @@
 #pragma once
 
+#include <nano/configurable.h>
 #include <nano/logger.h>
-#include <nano/program/solver.h>
 #include <nano/solver/state.h>
 #include <nano/tensor/algorithm.h>
 
@@ -137,13 +137,12 @@ private:
     void append(vector_cmap_t y, vector_cmap_t gy, scalar_t fy, bool serious_step);
 
     // attributes
-    program::solver_t m_solver;  ///< buffer: quadratic program solver
-    tensor_size_t     m_size{0}; ///< bundle: number of points
-    matrix_t          m_bundleS; ///< bundle: sub-gradients (size, dims)
-    vector_t          m_bundleE; ///< bundle: linearized errors (size)
-    vector_t          m_alphas;  ///< optimal Lagrange multipliers (size)
-    vector_t          m_x;       ///< proximal center (dims)
-    vector_t          m_gx;      ///< function gradient at the proximal center (dims)
-    scalar_t          m_fx;      ///< function value at the proximal center
+    tensor_size_t m_size{0}; ///< bundle: number of points
+    matrix_t      m_bundleS; ///< bundle: sub-gradients (size, dims)
+    vector_t      m_bundleE; ///< bundle: linearized errors (size)
+    vector_t      m_alphas;  ///< optimal Lagrange multipliers (size)
+    vector_t      m_x;       ///< proximal center (dims)
+    vector_t      m_gx;      ///< function gradient at the proximal center (dims)
+    scalar_t      m_fx;      ///< function value at the proximal center
 };
 } // namespace nano

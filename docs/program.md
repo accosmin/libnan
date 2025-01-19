@@ -13,7 +13,7 @@ Libnano provides various methods to solve linear and quadratic programs. The goa
 
 #### Program definition
 
-Linear and quadratic programs can be defined using the associated classes [linear_program_t](../include/nano/program/linear.h) and [quadratic_program_t](../include/nano/program/quadratic.h). Optionally arbitrarily many linear equality and inequality constraints can be chained by calling either the `make_linear` or the `make_quadratic` utilities. Following we show how to define various programs using the C++ interface:
+Linear and quadratic programs can be defined using the associated classes [linear_program_t](../include/nano/function/linear.h) and [quadratic_program_t](../include/nano/function/quadratic.h). Optionally arbitrarily many linear equality and inequality constraints can be chained by calling either the `make_linear` or the `make_quadratic` utilities. Following we show how to define various programs using the C++ interface:
 
 * the `standard linear program` consists of equality contraints and positive element-wise solutions:
 ```

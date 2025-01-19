@@ -80,7 +80,6 @@ void FLETCHER(matrix_t& H, const tvector& dx, const tvector& dg)
 solver_quasi_t::solver_quasi_t(string_t id)
     : solver_t(std::move(id))
 {
-    type(solver_type::line_search);
     parameter("solver::tolerance") = std::make_tuple(1e-4, 9e-1);
 
     register_parameter(parameter_t::make_enum("solver::quasi::initialization", quasi_initialization::identity));
@@ -88,19 +87,16 @@ solver_quasi_t::solver_quasi_t(string_t id)
 
 solver_state_t solver_quasi_t::do_minimize(const function_t& function, const vector_t& x0, const logger_t& logger) const
 {
+    solver_t::warn_nonsmooth(function, logger);
+    solver_t::warn_constrained(function, logger);
+
     const auto max_evals = parameter("solver::max_evals").value<tensor_size_t>();
-    const auto epsilon   = parameter("solver::epsilon").value<scalar_t>();
     const auto init      = parameter("solver::quasi::initialization").value<quasi_initialization>();
 
     auto cstate = solver_state_t{function, x0}; // current state
-    if (solver_t::done(cstate, true, cstate.gradient_test() < epsilon, logger))
-    {
-        return cstate;
-    }
-
+    auto pstate  = cstate;     // previous state
+    auto descent = vector_t{}; // descent direction
     auto lsearch = make_lsearch();
-    auto pstate  = solver_state_t{}; // previous state
-    auto descent = vector_t{};       // descent direction
 
     // current approximation of the Hessian's inverse
     matrix_t H = matrix_t::identity(function.size(), function.size());
@@ -122,8 +118,7 @@ solver_state_t solver_quasi_t::do_minimize(const function_t& function, const vec
         // line-search
         pstate               = cstate;
         const auto iter_ok   = lsearch.get(cstate, descent, logger);
-        const auto converged = cstate.gradient_test() < epsilon;
-        if (solver_t::done(cstate, iter_ok, converged, logger))
+        if (solver_t::done_gradient_test(cstate, iter_ok, logger))
         {
             break;
         }

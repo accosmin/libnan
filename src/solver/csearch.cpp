@@ -61,7 +61,7 @@ const csearch_t::point_t& csearch_t::search(bundle_t& bundle, const scalar_t miu
         bundle.solve(miu / t, logger);
 
         y  = bundle.proximal(miu / t);
-        fy = m_function.vgrad(y, gy);
+        fy = m_function(y, gy);
 
         const auto& x     = bundle.x();
         const auto  fx    = bundle.fx();

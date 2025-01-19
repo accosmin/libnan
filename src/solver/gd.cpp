@@ -5,7 +5,6 @@ using namespace nano;
 solver_gd_t::solver_gd_t()
     : solver_t("gd")
 {
-    type(solver_type::line_search);
     parameter("solver::tolerance") = std::make_tuple(1e-1, 9e-1);
 }
 
@@ -16,25 +15,22 @@ rsolver_t solver_gd_t::clone() const
 
 solver_state_t solver_gd_t::do_minimize(const function_t& function, const vector_t& x0, const logger_t& logger) const
 {
+    solver_t::warn_nonsmooth(function, logger);
+    solver_t::warn_constrained(function, logger);
+
     const auto max_evals = parameter("solver::max_evals").value<tensor_size_t>();
-    const auto epsilon   = parameter("solver::epsilon").value<scalar_t>();
 
     auto state = solver_state_t{function, x0};
-    if (solver_t::done(state, true, state.gradient_test() < epsilon, logger))
-    {
-        return state;
-    }
-
     auto lsearch = make_lsearch();
     auto descent = vector_t{function.size()};
+
     while (function.fcalls() + function.gcalls() < max_evals)
     {
         descent = -state.gx();
 
         // line-search
-        const auto iter_ok   = lsearch.get(state, descent, logger);
-        const auto converged = state.gradient_test() < epsilon;
-        if (solver_t::done(state, iter_ok, converged, logger))
+        const auto iter_ok = lsearch.get(state, descent, logger);
+        if (solver_t::done_gradient_test(state, iter_ok, logger))
         {
             break;
         }

@@ -1,3 +1,8 @@
+#include <nano/critical.h>
+#include <nano/function/bounds.h>
+#include <nano/function/cuts.h>
+#include <nano/function/quadratic.h>
+#include <nano/solver.h>
 #include <nano/solver/bundle.h>
 
 using namespace nano;
@@ -54,31 +59,19 @@ void bundle_t::solve(const scalar_t miu, const logger_t& logger)
     }
     else
     {
-        const auto Q = S() * S().transpose();
-        const auto c = miu * e();
+        auto Q = matrix_t{S() * S().transpose()};
+        auto c = vector_t{miu * e()};
 
-        const auto lower = program::make_less(m_size, 1.0);
-        const auto upper = program::make_greater(m_size, 0.0);
-        const auto wsum1 = program::make_equality(vector_t::constant(m_size, 1.0), 1.0);
+        auto program = quadratic_program_t{"qp", std::move(Q), std::move(c)};
+        critical(program.variable() <= 1.0);
+        critical(program.variable() >= 0.0);
+        critical((vector_t::constant(m_size, 1.0) * program.variable()) == 1.0);
 
-        const auto program = program::make_quadratic(Q, c, lower, upper, wsum1);
+        auto solver = solver_t::all().get("ipm");
 
-        const auto x0 = vector_t{vector_t::constant(m_size, 1.0 / static_cast<scalar_t>(m_size))};
-        assert(program.feasible(x0, epsilon1<scalar_t>()));
-
-        const auto solution = m_solver.solve(program, x0, logger);
-        if (!program.feasible(solution.m_x, epsilon1<scalar_t>()))
-        {
-            logger.error(".bundle: unfeasible solution to the bundle problem:\n\tQ=", Q, "\n\tc=", c,
-                         "\n\tdeviation(eq)=", program.m_eq.deviation(solution.m_x),
-                         "\n\tdeviation(ineq)=", program.m_ineq.deviation(solution.m_x));
-        }
-        if (solution.m_status != solver_status::converged)
-        {
-            logger.error(".bundle: failed to solve the bundle problem:\n\tQ=", Q, "\n\tc=", c);
-        }
-
-        m_alphas.slice(0, m_size) = solution.m_x;
+        const auto x0             = vector_t{vector_t::constant(m_size, 1.0 / static_cast<scalar_t>(m_size))};
+        const auto solution       = solver->minimize(program, x0, logger);
+        m_alphas.slice(0, m_size) = solution.x();
     }
 }
 

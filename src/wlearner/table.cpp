@@ -230,7 +230,7 @@ std::istream& table_wlearner_t::read(std::istream& stream)
 {
     single_feature_wlearner_t::read(stream);
 
-    critical(!::nano::read(stream, m_hashes) || !::nano::read(stream, m_hash2tables),
+    critical(::nano::read(stream, m_hashes) && ::nano::read(stream, m_hash2tables),
              "table weak learner: failed to read from stream!");
 
     return stream;
@@ -240,7 +240,7 @@ std::ostream& table_wlearner_t::write(std::ostream& stream) const
 {
     single_feature_wlearner_t::write(stream);
 
-    critical(!::nano::write(stream, m_hashes) || !::nano::write(stream, m_hash2tables),
+    critical(::nano::write(stream, m_hashes) && ::nano::write(stream, m_hash2tables),
              "table weak learner: failed to write to stream!");
 
     return stream;

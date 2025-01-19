@@ -5,13 +5,10 @@ using namespace nano;
 solver_universal_t::solver_universal_t(string_t id)
     : solver_t(std::move(id))
 {
-    type(solver_type::non_monotonic);
-
     static constexpr auto fmax = std::numeric_limits<scalar_t>::max();
 
     register_parameter(parameter_t::make_scalar("solver::universal::L0", 0.0, LT, 1e+0, LT, fmax));
     register_parameter(parameter_t::make_integer("solver::universal::lsearch_max_iters", 10, LE, 100, LE, 100));
-    register_parameter(parameter_t::make_integer("solver::universal::patience", 10, LE, 1000, LE, 1e+6));
 }
 
 solver_pgm_t::solver_pgm_t()
@@ -26,10 +23,12 @@ rsolver_t solver_pgm_t::clone() const
 
 solver_state_t solver_pgm_t::do_minimize(const function_t& function, const vector_t& x0, const logger_t& logger) const
 {
+    solver_t::warn_nonconvex(function, logger);
+    solver_t::warn_constrained(function, logger);
+
     const auto epsilon                = parameter("solver::epsilon").value<scalar_t>();
     const auto max_evals              = parameter("solver::max_evals").value<tensor_size_t>();
     const auto L0                     = parameter("solver::universal::L0").value<scalar_t>();
-    const auto patience               = parameter("solver::universal::patience").value<tensor_size_t>();
     const auto lsearch_max_iterations = parameter("solver::universal::lsearch_max_iters").value<tensor_size_t>();
 
     auto state = solver_state_t{function, x0};
@@ -47,11 +46,10 @@ solver_state_t solver_pgm_t::do_minimize(const function_t& function, const vecto
         // 1. line-search
         auto M         = L;
         auto iter_ok   = false;
-        auto converged = false;
         for (tensor_size_t k = 0; k < lsearch_max_iterations && !iter_ok && std::isfinite(fxk1); ++k)
         {
             xk1     = xk - gxk / M;
-            fxk1    = function.vgrad(xk1, gxk1);
+            fxk1    = function(xk1, gxk1);
             iter_ok = std::isfinite(fxk1) &&
                       fxk1 <= fxk + gxk.dot(xk1 - xk) + 0.5 * M * (xk1 - xk).dot(xk1 - xk) + 0.5 * epsilon;
             M *= 2.0;
@@ -65,11 +63,9 @@ solver_state_t solver_pgm_t::do_minimize(const function_t& function, const vecto
             gxk = gxk1;
             fxk = fxk1;
             state.update_if_better(xk1, gxk1, fxk1);
-
-            converged = state.value_test(patience) < epsilon;
         }
 
-        if (solver_t::done(state, iter_ok, converged, logger))
+        if (solver_t::done_value_test(state, iter_ok, logger))
         {
             break;
         }
@@ -90,10 +86,12 @@ rsolver_t solver_dgm_t::clone() const
 
 solver_state_t solver_dgm_t::do_minimize(const function_t& function, const vector_t& x0, const logger_t& logger) const
 {
+    solver_t::warn_nonconvex(function, logger);
+    solver_t::warn_constrained(function, logger);
+
     const auto epsilon                = parameter("solver::epsilon").value<scalar_t>();
     const auto max_evals              = parameter("solver::max_evals").value<tensor_size_t>();
     const auto L0                     = parameter("solver::universal::L0").value<scalar_t>();
-    const auto patience               = parameter("solver::universal::patience").value<tensor_size_t>();
     const auto lsearch_max_iterations = parameter("solver::universal::lsearch_max_iters").value<tensor_size_t>();
 
     auto state = solver_state_t{function, x0};
@@ -111,13 +109,12 @@ solver_state_t solver_dgm_t::do_minimize(const function_t& function, const vecto
         // 1. line-search
         auto M         = L;
         auto iter_ok   = false;
-        auto converged = false;
         for (int64_t k = 0; k < lsearch_max_iterations && !iter_ok && std::isfinite(fxk1); ++k)
         {
-            xk1     = gphi - gxk / M;
-            fxk1    = function.vgrad(xk1, gxk1);
-            iter_ok = std::isfinite(fxk1) &&
-                      function.vgrad(yk = xk1 - gxk1 / M) <= fxk1 - 0.5 * gxk1.dot(gxk1) / M + 0.5 * epsilon;
+            xk1  = gphi - gxk / M;
+            fxk1 = function(xk1, gxk1);
+            iter_ok =
+                std::isfinite(fxk1) && function(yk = xk1 - gxk1 / M) <= fxk1 - 0.5 * gxk1.dot(gxk1) / M + 0.5 * epsilon;
             M *= 2.0;
         }
 
@@ -129,11 +126,9 @@ solver_state_t solver_dgm_t::do_minimize(const function_t& function, const vecto
             L   = 0.5 * M;
             gxk = gxk1;
             state.update_if_better(xk1, gxk1, fxk1);
-
-            converged = state.value_test(patience) < epsilon;
         }
 
-        if (solver_t::done(state, iter_ok, converged, logger))
+        if (solver_t::done_value_test(state, iter_ok, logger))
         {
             break;
         }
@@ -154,10 +149,12 @@ rsolver_t solver_fgm_t::clone() const
 
 solver_state_t solver_fgm_t::do_minimize(const function_t& function, const vector_t& x0, const logger_t& logger) const
 {
+    solver_t::warn_nonconvex(function, logger);
+    solver_t::warn_constrained(function, logger);
+
     const auto epsilon                = parameter("solver::epsilon").value<scalar_t>();
     const auto max_evals              = parameter("solver::max_evals").value<tensor_size_t>();
     const auto L0                     = parameter("solver::universal::L0").value<scalar_t>();
-    const auto patience               = parameter("solver::universal::patience").value<tensor_size_t>();
     const auto lsearch_max_iterations = parameter("solver::universal::lsearch_max_iters").value<tensor_size_t>();
 
     auto state = solver_state_t{function, x0};
@@ -179,17 +176,16 @@ solver_state_t solver_fgm_t::do_minimize(const function_t& function, const vecto
         // 2. line-search
         auto M         = L;
         auto iter_ok   = false;
-        auto converged = false;
         for (int64_t k = 0; k < lsearch_max_iterations && !iter_ok && std::isfinite(fxk1) && std::isfinite(fyk1); ++k)
         {
             ak1            = (1.0 + std::sqrt(1.0 + 4.0 * M * Ak)) / (2.0 * M);
             const auto tau = ak1 / (Ak + ak1);
 
             xk1  = tau * vk + (1.0 - tau) * yk;
-            fxk1 = function.vgrad(xk1, gxk1);
+            fxk1 = function(xk1, gxk1);
 
             yk1  = tau * (vk - ak1 * gxk1) + (1.0 - tau) * yk;
-            fyk1 = function.vgrad(yk1, gyk1);
+            fyk1 = function(yk1, gyk1);
 
             iter_ok = std::isfinite(fxk1) && std::isfinite(fyk1) &&
                       fyk1 <= fxk1 + gxk1.dot(yk1 - xk1) + 0.5 * M * (yk1 - xk1).dot(yk1 - xk1) + 0.5 * epsilon * tau;
@@ -204,11 +200,9 @@ solver_state_t solver_fgm_t::do_minimize(const function_t& function, const vecto
             L = 0.5 * M;
             vk -= ak1 * gxk1;
             state.update_if_better(yk1, gyk1, fyk1);
-
-            converged = state.value_test(patience) < epsilon;
         }
 
-        if (solver_t::done(state, iter_ok, converged, logger))
+        if (solver_t::done_value_test(state, iter_ok, logger))
         {
             break;
         }

@@ -1,5 +1,5 @@
-#include "fixture/function.h"
-#include "fixture/loss.h"
+#include <fixture/function.h>
+#include <fixture/loss.h>
 #include <nano/core/numeric.h>
 #include <nano/core/random.h>
 #include <nano/function.h>
@@ -105,7 +105,7 @@ UTEST_CASE(gradient)
 
                 const vector_t x = tx.vector();
 
-                const auto f = function.vgrad(x);
+                const auto f = function(x);
                 UTEST_CHECK_EQUAL(std::isfinite(f), true);
                 UTEST_CHECK_GREATER_EQUAL(f, scalar_t(0));
                 UTEST_CHECK_LESS(grad_accuracy(function, x), 5 * epsilon2<scalar_t>());

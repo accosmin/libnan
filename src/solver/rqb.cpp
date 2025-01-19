@@ -7,8 +7,6 @@ using namespace nano;
 solver_rqb_t::solver_rqb_t()
     : solver_t("rqb")
 {
-    type(solver_type::non_monotonic); // FIXME: the method is monotonic, but need to refactor the solver_t interface!
-
     const auto prefix = string_t{"solver::rqb"};
     bundle_t::config(*this, prefix);
     csearch_t::config(*this, prefix);
@@ -22,6 +20,9 @@ rsolver_t solver_rqb_t::clone() const
 
 solver_state_t solver_rqb_t::do_minimize(const function_t& function, const vector_t& x0, const logger_t& logger) const
 {
+    warn_nonconvex(function, logger);
+    warn_constrained(function, logger);
+
     const auto prefix    = string_t{"solver::rqb"};
     const auto max_evals = parameter("solver::max_evals").value<tensor_size_t>();
     const auto epsilon   = parameter("solver::epsilon").value<scalar_t>();
@@ -40,7 +41,7 @@ solver_state_t solver_rqb_t::do_minimize(const function_t& function, const vecto
 
         const auto iter_ok   = status != csearch_status::failed;
         const auto converged = status == csearch_status::converged;
-        if (solver_t::done(state, iter_ok, converged, logger))
+        if (solver_t::done_specific_test(state, iter_ok, converged, logger))
         {
             break;
         }

@@ -106,8 +106,8 @@ bool nano::evaluate(const param_spaces_t& spaces, const tuner_callback_t& callba
     {
         const auto& igrid = igrids[static_cast<size_t>(itrial)];
 
-        critical(!std::isfinite(values(itrial)), "tuner: invalid value (", values(itrial),
-                 ") detected for parameters (", params.vector(itrial).transpose(), ")!");
+        critical(std::isfinite(values(itrial)), "tuner: invalid value (", values(itrial), ") detected for parameters (",
+                 params.vector(itrial).transpose(), ")!");
 
         steps.emplace_back(tuner_step_t{igrid, params.tensor(itrial), values(itrial)});
     }

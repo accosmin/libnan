@@ -3,29 +3,65 @@
 
 using namespace nano;
 
-solver_state_t::solver_state_t() = default;
-
 solver_state_t::solver_state_t(const function_t& function, vector_t x0)
-    : m_function(&function)
+    : m_function(function)
     , m_x(std::move(x0))
     , m_gx(vector_t::zero(m_x.size()))
-    , m_fx(m_function->vgrad(m_x, m_gx))
-    , m_ceq(vector_t::constant(::nano::count_equalities(m_function->constraints()), 0.0))
-    , m_cineq(vector_t::constant(::nano::count_inequalities(m_function->constraints()), 0.0))
+    , m_fx(m_function(m_x, m_gx))
+    , m_ceq(vector_t::constant(m_function.n_equalities(), 0.0))
+    , m_cineq(vector_t::constant(m_function.n_inequalities(), 0.0))
     , m_meq(vector_t::constant(m_ceq.size(), 0.0))
     , m_mineq(vector_t::constant(m_cineq.size(), 0.0))
     , m_lgx(vector_t::constant(m_x.size(), 0.0))
+    , m_track(m_x, m_fx)
 {
+    assert(x0.size() == m_function.size());
+
     update_calls();
     update_constraints();
+}
+
+solver_state_t::solver_state_t(const solver_state_t& other)
+    : m_function(other.m_function)
+    , m_x(other.m_x)
+    , m_gx(other.m_gx)
+    , m_fx(other.m_fx)
+    , m_ceq(other.m_ceq)
+    , m_cineq(other.m_cineq)
+    , m_meq(other.m_meq)
+    , m_mineq(other.m_mineq)
+    , m_lgx(other.m_lgx)
+    , m_status(other.m_status)
+    , m_fcalls(other.m_fcalls)
+    , m_gcalls(other.m_gcalls)
+    , m_track(other.m_track)
+{
+}
+
+solver_state_t& solver_state_t::operator=(const solver_state_t& other)
+{
+    if (this != &other && &m_function == &other.m_function)
+    {
+        m_x      = other.m_x;
+        m_gx     = other.m_gx;
+        m_fx     = other.m_fx;
+        m_ceq    = other.m_ceq;
+        m_cineq  = other.m_cineq;
+        m_meq    = other.m_meq;
+        m_mineq  = other.m_mineq;
+        m_lgx    = other.m_lgx;
+        m_status = other.m_status;
+        m_fcalls = other.m_fcalls;
+        m_gcalls = other.m_gcalls;
+        m_track  = other.m_track;
+    }
+    return *this;
 }
 
 bool solver_state_t::update(const vector_cmap_t x, const vector_cmap_t gx, const scalar_t fx,
                             const vector_cmap_t multiplier_equalities, const vector_cmap_t multiplier_inequalities)
 {
-    assert(m_function);
     assert(x.size() == m_x.size());
-    assert(x.size() == m_function->size());
     assert(gx.size() == m_x.size());
     assert(multiplier_equalities.size() == 0 || multiplier_equalities.size() == m_meq.size());
     assert(multiplier_inequalities.size() == 0 || multiplier_inequalities.size() == m_mineq.size());
@@ -54,10 +90,7 @@ bool solver_state_t::update_if_better(const vector_t& x, const vector_t& gx, con
 
     if (std::isfinite(fx))
     {
-        const auto df = m_fx - fx;
-        const auto dx = (m_x - x).lpNorm<Eigen::Infinity>();
-
-        const auto better = df > 0.0;
+        const auto better = m_fx > fx;
         if (better)
         {
             m_x  = x;
@@ -65,16 +98,10 @@ bool solver_state_t::update_if_better(const vector_t& x, const vector_t& gx, con
             m_gx = gx;
             update_constraints();
         }
-
-        m_history_df.push_back(df);
-        m_history_dx.push_back(dx);
-
         return better;
     }
     else
     {
-        m_history_df.push_back(std::numeric_limits<scalar_t>::lowest());
-        m_history_dx.push_back(std::numeric_limits<scalar_t>::lowest());
         return false;
     }
 }
@@ -86,29 +113,34 @@ bool solver_state_t::update_if_better(const vector_t& x, const scalar_t fx)
 
 void solver_state_t::update_calls()
 {
-    m_fcalls = m_function->fcalls();
-    m_gcalls = m_function->gcalls();
+    m_fcalls = m_function.fcalls();
+    m_gcalls = m_function.gcalls();
+}
+
+void solver_state_t::update_history()
+{
+    m_track.update(m_x, m_fx);
 }
 
 void solver_state_t::update_constraints()
 {
-    auto eq    = 0;
-    auto ineq  = 0;
-    auto cgrad = vector_t{m_x.size()};
+    auto eq   = 0;
+    auto ineq = 0;
+    auto gc   = vector_t{m_x.size()};
 
     m_lgx = m_gx;
-    for (const auto& constraint : m_function->constraints())
+    for (const auto& constraint : m_function.constraints())
     {
         if (::nano::is_equality(constraint))
         {
-            m_ceq(eq) = ::vgrad(constraint, m_x, cgrad);
-            m_lgx += m_meq(eq) * cgrad;
+            m_ceq(eq) = ::vgrad(constraint, m_x, gc);
+            m_lgx += m_meq(eq) * gc;
             ++eq;
         }
         else
         {
-            m_cineq(ineq) = ::vgrad(constraint, m_x, cgrad);
-            m_lgx += m_mineq(ineq) * cgrad;
+            m_cineq(ineq) = ::vgrad(constraint, m_x, gc);
+            m_lgx += m_mineq(ineq) * gc;
             ++ineq;
         }
     }
@@ -116,39 +148,13 @@ void solver_state_t::update_constraints()
 
 scalar_t solver_state_t::value_test(const tensor_size_t patience) const
 {
-    assert(m_history_df.size() == m_history_dx.size());
-
-    auto ii = m_history_df.size();
-    auto dd = std::numeric_limits<scalar_t>::max();
-    for (size_t it = m_history_df.size(); it > 0U; --it)
+    if (m_function.constraints().empty())
     {
-        const auto df = m_history_df[it - 1U];
-        const auto dx = m_history_dx[it - 1U];
-
-        if (df > 0.0)
-        {
-            dd = std::max(df, dx);
-            ii = it - 1U;
-            break;
-        }
+        return m_track.value_test_unconstrained(patience);
     }
-
-    // no improvement ever recorded, stop if enough iterations have passed
-    if (ii == m_history_df.size())
-    {
-        return m_history_df.size() >= static_cast<size_t>(patience) ? 0.0 : dd;
-    }
-
-    // convergence criterion is the improvement in the recent iterations
-    else if (ii + static_cast<size_t>(patience) >= m_history_df.size())
-    {
-        return dd;
-    }
-
-    // no improvement in the recent iterations, stop with potential convergence status
     else
     {
-        return 0.0;
+        return m_track.value_test_constrained(patience);
     }
 }
 
@@ -240,10 +246,19 @@ scalar_t solver_state_t::kkt_optimality_test() const
                      kkt_optimality_test5()});
 }
 
+scalar_t solver_state_t::feasibility_test() const
+{
+    return std::max({kkt_optimality_test1(), kkt_optimality_test2()});
+}
+
 std::ostream& nano::operator<<(std::ostream& stream, const solver_state_t& state)
 {
     stream << "calls=" << state.fcalls() << "|" << state.gcalls();
-    stream << ",f=" << state.fx() << ",g=" << state.gradient_test();
+    stream << ",f=" << state.fx();
+    if (state.function().smooth())
+    {
+        stream << ",g=" << state.gradient_test();
+    }
     if (state.ceq().size() + state.cineq().size() > 0)
     {
         stream << ",kkt=(" << state.kkt_optimality_test1() << "," << state.kkt_optimality_test2() << ","
@@ -251,11 +266,4 @@ std::ostream& nano::operator<<(std::ostream& stream, const solver_state_t& state
                << state.kkt_optimality_test5() << ")";
     }
     return stream << "[" << state.status() << "]";
-}
-
-bool nano::converged(const solver_state_t& bstate, const solver_state_t& cstate, const scalar_t epsilon)
-{
-    const auto dx = (cstate.x() - bstate.x()).lpNorm<Eigen::Infinity>();
-
-    return dx < epsilon * std::max(1.0, bstate.x().lpNorm<Eigen::Infinity>());
 }

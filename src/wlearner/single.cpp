@@ -20,7 +20,7 @@ std::istream& single_feature_wlearner_t::read(std::istream& stream)
 {
     wlearner_t::read(stream);
 
-    critical(!::nano::read_cast<int64_t>(stream, m_feature) || !::nano::read(stream, m_tables),
+    critical(::nano::read_cast<int64_t>(stream, m_feature) && ::nano::read(stream, m_tables),
              "single feature weak learner: failed to read from stream!");
 
     return stream;
@@ -30,7 +30,7 @@ std::ostream& single_feature_wlearner_t::write(std::ostream& stream) const
 {
     wlearner_t::write(stream);
 
-    critical(!::nano::write(stream, static_cast<int64_t>(m_feature)) || !::nano::write(stream, m_tables),
+    critical(::nano::write(stream, static_cast<int64_t>(m_feature)) && ::nano::write(stream, m_tables),
              "single feature learner: failed to write to stream!");
 
     return stream;

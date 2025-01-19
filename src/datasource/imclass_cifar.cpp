@@ -35,7 +35,7 @@ void cifar_datasource_t::do_load()
     for (const auto& file : m_files)
     {
         log_info("[", type_id(), "]: loading file <", make_full_path(file.m_filename), "> ...");
-        critical(!iread(file), "datasource[", type_id(), "]: failed to load file <", make_full_path(file.m_filename),
+        critical(iread(file), "datasource[", type_id(), "]: failed to load file <", make_full_path(file.m_filename),
                  ">!");
 
         sample += file.m_expected;

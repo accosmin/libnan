@@ -162,12 +162,12 @@ void surrogate_tuner_t::do_optimize(const param_spaces_t& spaces, const tuner_ca
 
         const auto surrogate_fit = quadratic_surrogate_fit_t{*loss, p, y};
         const auto min_state_fit = solver->minimize(surrogate_fit, vector_t::zero(surrogate_fit.size()), logger);
-        critical(!min_state_fit.valid(), "tuner: failed to fit the surrogate model <", min_state_fit, ">!");
+        critical(min_state_fit.valid(), "tuner: failed to fit the surrogate model <", min_state_fit, ">!");
 
         const auto surrogate_opt = quadratic_surrogate_t{min_state_fit.x()};
         const auto min_state_opt =
             solver->minimize(surrogate_opt, to_surrogate(steps.begin()->m_param).vector(), logger);
-        critical(!min_state_opt.valid(), "tuner: failed to optimize the surrogate model <", min_state_opt, ">!");
+        critical(min_state_opt.valid(), "tuner: failed to optimize the surrogate model <", min_state_opt, ">!");
 
         const auto& min_state_opt_x = min_state_opt.x();
 

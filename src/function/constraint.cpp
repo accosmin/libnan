@@ -115,7 +115,7 @@ auto vgrad(const constant_t& constraint, vector_cmap_t x, vector_map_t gx)
 
 auto vgrad(const functional_t& constraint, vector_cmap_t x, vector_map_t gx)
 {
-    return constraint.m_function->vgrad(x, gx);
+    return (*constraint.m_function)(x, gx);
 }
 
 bool convex(const euclidean_ball_t&)
@@ -135,7 +135,7 @@ bool convex(const constant_t&)
 
 bool convex(const quadratic_t& constraint)
 {
-    return nano::convex(constraint.m_P);
+    return nano::is_convex(constraint.m_P);
 }
 
 bool convex(const functional_t& constraint)
@@ -331,30 +331,50 @@ bool nano::compatible(const constraint_t& constraint, const function_t& function
 
 bool nano::is_equality(const constraint_t& constraint)
 {
-    return std::get_if<constraint::constant_t>(&constraint) != nullptr ||
-           std::get_if<constraint::linear_equality_t>(&constraint) != nullptr ||
-           std::get_if<constraint::quadratic_equality_t>(&constraint) != nullptr ||
-           std::get_if<constraint::functional_equality_t>(&constraint) != nullptr ||
-           std::get_if<constraint::euclidean_ball_equality_t>(&constraint) != nullptr;
+    return std::visit(overloaded{[](const constant_t&) { return true; },                   ///<
+                                 [](const minimum_t&) { return false; },                   ///<
+                                 [](const maximum_t&) { return false; },                   ///<
+                                 [](const linear_equality_t&) { return true; },            ///<
+                                 [](const linear_inequality_t&) { return false; },         ///<
+                                 [](const euclidean_ball_equality_t&) { return true; },    ///<
+                                 [](const euclidean_ball_inequality_t&) { return false; }, ///<
+                                 [](const quadratic_equality_t&) { return true; },         ///<
+                                 [](const quadratic_inequality_t&) { return false; },      ///<
+                                 [](const functional_equality_t&) { return true; },        ///<
+                                 [](const functional_inequality_t&) { return false; }},    ///<
+                      constraint);
 }
 
-tensor_size_t nano::count_equalities(const function_t& function)
+bool nano::is_linear(const constraint_t& constraint)
 {
-    return count_equalities(function.constraints());
+    return std::visit(overloaded{[](const constant_t&) { return true; },          ///<
+                                 [](const minimum_t&) { return true; },           ///<
+                                 [](const maximum_t&) { return true; },           ///<
+                                 [](const linear_equality_t&) { return true; },   ///<
+                                 [](const linear_inequality_t&) { return true; }, ///<
+                                 [](const euclidean_ball_t&) { return false; },   ///<
+                                 [](const quadratic_t&) { return false; },        ///<
+                                 [](const functional_t&) { return false; }},      ///<
+                      constraint);
 }
 
-tensor_size_t nano::count_equalities(const constraints_t& constraints)
+tensor_size_t nano::n_equalities(const function_t& function)
+{
+    return n_equalities(function.constraints());
+}
+
+tensor_size_t nano::n_equalities(const constraints_t& constraints)
 {
     const auto op = [](const auto& constraint) { return is_equality(constraint); };
     return std::count_if(std::begin(constraints), std::end(constraints), op);
 }
 
-tensor_size_t nano::count_inequalities(const function_t& function)
+tensor_size_t nano::n_inequalities(const function_t& function)
 {
-    return count_inequalities(function.constraints());
+    return n_inequalities(function.constraints());
 }
 
-tensor_size_t nano::count_inequalities(const constraints_t& constraints)
+tensor_size_t nano::n_inequalities(const constraints_t& constraints)
 {
     const auto op = [](const auto& constraint) { return !is_equality(constraint); };
     return std::count_if(std::begin(constraints), std::end(constraints), op);

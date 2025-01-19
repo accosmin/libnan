@@ -113,7 +113,7 @@ std::istream& dtree_wlearner_t::read(std::istream& stream)
 {
     wlearner_t::read(stream);
 
-    critical(!::nano::read(stream, m_nodes) || !::nano::read(stream, m_features) || !::nano::read(stream, m_tables),
+    critical(::nano::read(stream, m_nodes) && ::nano::read(stream, m_features) && ::nano::read(stream, m_tables),
              "dtree weak learner: failed to read from stream!");
 
     return stream;
@@ -123,7 +123,7 @@ std::ostream& dtree_wlearner_t::write(std::ostream& stream) const
 {
     wlearner_t::write(stream);
 
-    critical(!::nano::write(stream, m_nodes) || !::nano::write(stream, m_features) || !::nano::write(stream, m_tables),
+    critical(::nano::write(stream, m_nodes) && ::nano::write(stream, m_features) && ::nano::write(stream, m_tables),
              "dtree weak learner: failed to write to stream!");
 
     return stream;

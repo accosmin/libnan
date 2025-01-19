@@ -44,7 +44,7 @@ void check_vgrad(const linear::function_t& function, const flatten_iterator_t& i
 
         tensor1d_t values(samples);
         loss.value(targets, outputs, values);
-        UTEST_CHECK_CLOSE(function.vgrad(x), values.vector().mean(), epsilon1<scalar_t>());
+        UTEST_CHECK_CLOSE(function(x), values.vector().mean(), epsilon1<scalar_t>());
     }
 }
 
@@ -55,9 +55,11 @@ auto check_minimize(const function_t& function)
     const auto        epsilon_solver = function.smooth() ? 1e-10 : (function.strong_convexity() > 0.0 ? 1e-6 : 1e-4);
     const auto        solver         = make_solver(solver_id);
     solver->lsearchk("cgdescent");
+    solver->parameter("solver::max_evals") = 10000;
+    solver->parameter("solver::epsilon")   = epsilon_solver;
 
     const auto x0     = make_full_vector<scalar_t>(function.size(), 0);
-    const auto config = minimize_config_t{}.max_evals(20000).epsilon(epsilon_solver);
+    const auto config = minimize_config_t{};
     const auto state  = check_minimize(*solver, function, x0, config);
     return std::make_pair(state, epsilon_linear);
 }

@@ -159,7 +159,7 @@ std::istream& hinge_wlearner_t::read(std::istream& stream)
 {
     single_feature_wlearner_t::read(stream);
 
-    critical(!::nano::read(stream, m_threshold) || !::nano::read_cast<uint32_t>(stream, m_hinge),
+    critical(::nano::read(stream, m_threshold) && ::nano::read_cast<uint32_t>(stream, m_hinge),
              "hinge weak learner: failed to read from stream!");
 
     return stream;
@@ -169,7 +169,7 @@ std::ostream& hinge_wlearner_t::write(std::ostream& stream) const
 {
     single_feature_wlearner_t::write(stream);
 
-    critical(!::nano::write(stream, m_threshold) || !::nano::write(stream, static_cast<uint32_t>(m_hinge)),
+    critical(::nano::write(stream, m_threshold) && ::nano::write(stream, static_cast<uint32_t>(m_hinge)),
              "hinge weak learner: failed to write to stream!");
 
     return stream;

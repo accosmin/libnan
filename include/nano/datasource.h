@@ -196,7 +196,7 @@ private:
         case feature_type::uint16: return op(feature, m_storage_u16.slice(range).reshape(samples, d0, d1, d2), mask);
         case feature_type::uint32: return op(feature, m_storage_u32.slice(range).reshape(samples, d0, d1, d2), mask);
         case feature_type::uint64: return op(feature, m_storage_u64.slice(range).reshape(samples, d0, d1, d2), mask);
-        default: critical0("in-memory dataset: unhandled feature type (", static_cast<int>(feature.type()), ")!");
+        default: raise("in-memory dataset: unhandled feature type (", static_cast<int>(feature.type()), ")!");
         }
         return op(feature, m_storage_u08.slice(range).reshape(-1), mask);
     }
@@ -229,7 +229,7 @@ private:
         case feature_type::uint16: return op(feature, m_storage_u16.slice(range).reshape(samples, d0, d1, d2), mask);
         case feature_type::uint32: return op(feature, m_storage_u32.slice(range).reshape(samples, d0, d1, d2), mask);
         case feature_type::uint64: return op(feature, m_storage_u64.slice(range).reshape(samples, d0, d1, d2), mask);
-        default: critical0("in-memory dataset: unhandled feature type (", static_cast<int>(feature.type()), ")!");
+        default: raise("in-memory dataset: unhandled feature type (", static_cast<int>(feature.type()), ")!");
         }
         return op(feature, m_storage_u08.slice(range).reshape(-1), mask);
     }

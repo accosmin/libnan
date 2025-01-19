@@ -9,8 +9,6 @@ template <class tsequence>
 base_solver_fpba_t<tsequence>::base_solver_fpba_t()
     : solver_t(scat("fpba", tsequence::str()))
 {
-    type(solver_type::non_monotonic);
-
     const auto prefix = scat("solver::", type_id());
     bundle_t::config(*this, prefix);
     csearch_t::config(*this, prefix);
@@ -27,6 +25,9 @@ template <class tsequence>
 solver_state_t base_solver_fpba_t<tsequence>::do_minimize(const function_t& function, const vector_t& x0,
                                                           const logger_t& logger) const
 {
+    warn_nonconvex(function, logger);
+    warn_constrained(function, logger);
+
     const auto prefix    = scat("solver::", type_id());
     const auto max_evals = parameter("solver::max_evals").template value<tensor_size_t>();
     const auto epsilon   = parameter("solver::epsilon").template value<scalar_t>();
@@ -45,7 +46,7 @@ solver_state_t base_solver_fpba_t<tsequence>::do_minimize(const function_t& func
 
         // nesterov's momentum on the proximity center
         const auto& x  = sequence.update(z);
-        const auto  fx = function.vgrad(x, gx);
+        const auto  fx = function(x, gx);
         bundle.moveto(x, gx, fx);
 
         // update best point and reset momentum if no improvement
@@ -61,7 +62,7 @@ solver_state_t base_solver_fpba_t<tsequence>::do_minimize(const function_t& func
 
         const auto iter_ok   = status != csearch_status::failed;
         const auto converged = status == csearch_status::converged;
-        if (solver_t::done(state, iter_ok, converged, logger))
+        if (solver_t::done_specific_test(state, iter_ok, converged, logger))
         {
             break;
         }

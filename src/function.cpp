@@ -65,61 +65,30 @@ bool function_t::constrain(constraint_t&& constraint)
     return false;
 }
 
-bool function_t::constrain(const scalar_t min, const scalar_t max, const tensor_size_t dimension)
-{
-    if (min < max && dimension >= 0 && dimension < size())
-    {
-        m_constraints.emplace_back(constraint::minimum_t{min, dimension});
-        m_constraints.emplace_back(constraint::maximum_t{max, dimension});
-        return true;
-    }
-    return false;
-}
-
-bool function_t::constrain(const scalar_t min, const scalar_t max)
-{
-    if (min < max)
-    {
-        for (tensor_size_t i = 0, size = this->size(); i < size; ++i)
-        {
-            m_constraints.emplace_back(constraint::minimum_t{min, i});
-            m_constraints.emplace_back(constraint::maximum_t{max, i});
-        }
-        return true;
-    }
-    return false;
-}
-
-bool function_t::constrain(const vector_t& min, const vector_t& max)
-{
-    if (min.size() == size() && max.size() == size() && (max - min).minCoeff() > 0.0)
-    {
-        for (tensor_size_t i = 0, size = this->size(); i < size; ++i)
-        {
-            m_constraints.emplace_back(constraint::minimum_t{min(i), i});
-            m_constraints.emplace_back(constraint::maximum_t{max(i), i});
-        }
-        return true;
-    }
-    return false;
-}
-
-bool function_t::valid(const vector_t& x) const
-{
-    assert(x.size() == size());
-
-    const auto op = [&](const constraint_t& constraint)
-    { return ::nano::valid(constraint, x) < std::numeric_limits<scalar_t>::epsilon(); };
-
-    return std::all_of(m_constraints.begin(), m_constraints.end(), op);
-}
-
 const constraints_t& function_t::constraints() const
 {
     return m_constraints;
 }
 
-scalar_t function_t::vgrad(vector_cmap_t x, vector_map_t gx) const
+bool function_t::valid(const vector_t& x) const
+{
+    const auto op = [&](const constraint_t& constraint)
+    { return ::nano::valid(constraint, x) < std::numeric_limits<scalar_t>::epsilon(); };
+
+    return x.size() == size() && std::all_of(m_constraints.begin(), m_constraints.end(), op);
+}
+
+tensor_size_t function_t::n_equalities() const
+{
+    return ::nano::n_equalities(m_constraints);
+}
+
+tensor_size_t function_t::n_inequalities() const
+{
+    return ::nano::n_inequalities(m_constraints);
+}
+
+scalar_t function_t::operator()(vector_cmap_t x, vector_map_t gx) const
 {
     assert(x.size() == size());
     assert(gx.size() == 0 || gx.size() == size());
@@ -148,6 +117,46 @@ void function_t::clear_statistics() const
 rfunction_t function_t::make(tensor_size_t, tensor_size_t) const
 {
     return rfunction_t{};
+}
+
+bool function_t::optimum(vector_t xbest)
+{
+    if (xbest.size() != size())
+    {
+        return false;
+    }
+    else
+    {
+        m_optimum.m_status = optimum_t::status::solvable;
+        m_optimum.m_xbest  = std::move(xbest);
+        m_optimum.m_fbest  = do_vgrad(m_optimum.m_xbest, vector_map_t{});
+        return true;
+    }
+}
+
+bool function_t::optimum(const scalar_t fbest)
+{
+    if (!std::isfinite(fbest))
+    {
+        return false;
+    }
+    else
+    {
+        m_optimum.m_status = optimum_t::status::solvable;
+        m_optimum.m_fbest  = fbest;
+        return true;
+    }
+}
+
+bool function_t::optimum(const optimum_t::status status)
+{
+    m_optimum.m_status = status;
+    return true;
+}
+
+const optimum_t& function_t::optimum() const
+{
+    return m_optimum;
 }
 
 factory_t<function_t>& function_t::all()

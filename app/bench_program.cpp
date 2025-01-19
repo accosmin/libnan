@@ -1,25 +1,21 @@
 #include <nano/core/cmdline.h>
 #include <nano/main.h>
-#include <nano/program/expected.h>
-#include <nano/program/linear.h>
-#include <nano/program/quadratic.h>
-#include <nano/solver.h>
+#include <nano/solver/augmented.h>
+#include <nano/solver/penalty.h>
 
 using namespace nano;
-using namespace nano::program;
 
 namespace
 {
 // TODO: generate benchmark linear and quadratic programs
 // TODO: associate names to programs expected_t{[linear|quadratic][nD][param=value]}
 
-/*struct result_t
+struct result_t
 {
     result_t() = default;
 
-    result_t(const solver_state_t& state, int64_t milliseconds)
+    result_t(const solver_state_t& state, const int64_t milliseconds)
         : m_value(state.fx())
-        , m_gnorm(state.gradient_test())
         , m_status(state.status())
         , m_fcalls(state.fcalls())
         , m_gcalls(state.gcalls())
@@ -28,14 +24,14 @@ namespace
     }
 
     scalar_t      m_value{0.0};
-    scalar_t      m_gnorm{0.0};
+    scalar_t      m_kkt{0.0};
     solver_status m_status{solver_status::converged};
     tensor_size_t m_fcalls{0};
     tensor_size_t m_gcalls{0};
     int64_t       m_milliseconds{0};
 };
 
-struct solver_stats_t
+/*struct solver_stats_t
 {
     explicit solver_stats_t(size_t trials)
         : m_values(static_cast<tensor_size_t>(trials))
@@ -254,16 +250,9 @@ int unsafe_main(int argc, const char* argv[])
 
     // parse the command line
     cmdline_t cmdline("benchmark solvers");
-    cmdline.add("--solver", "regex to select solvers", ".+");
-    cmdline.add("--function", "regex to select test functions", ".+");
-    cmdline.add("--lsearch0", "regex to select line-search initialization methods", "quadratic");
-    cmdline.add("--lsearchk", "regex to select line-search strategies", "cgdescent");
     cmdline.add("--min-dims", "minimum number of dimensions for each test function (if feasible)", "4");
     cmdline.add("--max-dims", "maximum number of dimensions for each test function (if feasible)", "16");
     cmdline.add("--trials", "number of random trials for each test function", "100");
-    cmdline.add("--convex", "use only convex test functions");
-    cmdline.add("--smooth", "use only smooth test functions");
-    cmdline.add("--non-smooth", "use only non-smooth test functions");
     cmdline.add("--log-dir", "directory to log the optimization trajectories");
 
     const auto options = cmdline.process(argc, argv);
@@ -272,28 +261,19 @@ int unsafe_main(int argc, const char* argv[])
         return EXIT_SUCCESS;
     }
 
-    /*
     // check arguments and options
     const auto min_dims = options.get<tensor_size_t>("--min-dims");
     const auto max_dims = options.get<tensor_size_t>("--max-dims");
     const auto trials   = options.get<size_t>("--trials");
 
-    const auto convex = options.has("--convex") ? convexity::yes : convexity::ignore;
-    const auto smooth =
-        options.has("--smooth") ? smoothness::yes : (options.has("--non-smooth") ? smoothness::no : smoothness::ignore);
-
     const auto log_dir = options.has("--log-dir") ? options.get("--log-dir") : string_t{};
-    const auto fregex  = std::regex(options.get<string_t>("--function"));
-    const auto sregex  = std::regex(options.get<string_t>("--solver"));
-    const auto l0regex = std::regex(options.get<string_t>("--lsearch0"));
-    const auto lkregex = std::regex(options.get<string_t>("--lsearchk"));
 
-    const auto lsearch0_ids = options.has("--lsearch0") ? lsearch0_t::all().ids(l0regex) : strings_t{""};
-    const auto lsearchk_ids = options.has("--lsearchk") ? lsearchk_t::all().ids(lkregex) : strings_t{""};
+    (void)min_dims;
+    (void)max_dims;
+    (void)trials;
+    (void)log_dir;
 
-    const auto solver_ids = solver_t::all().ids(sregex);
-    critical(solver_ids.empty(), "at least a solver needs to be selected!");
-
+    /*
     const auto functions = function_t::make({min_dims, max_dims, convex, smooth}, fregex);
     critical(functions.empty(), "at least a function needs to be selected!");
 

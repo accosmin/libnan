@@ -30,7 +30,7 @@ auto smooth(const function_t& function)
 template <class toperator>
 auto penalty_vgrad(const function_t& function, vector_cmap_t x, vector_map_t gx, const toperator& op)
 {
-    auto fx = function.vgrad(x, gx);
+    auto fx = function(x, gx);
 
     for (const auto& constraint : function.constraints())
     {
@@ -52,7 +52,10 @@ penalty_function_t::penalty_function_t(const function_t& function, const char* c
     : function_t(scat(prefix, function.name()), function.size())
     , m_function(function)
 {
-    strong_convexity(function.strong_convexity()); // NB: cannot estimate the strong convexity coefficient in general!
+    // NB: cannot estimate the strong convexity coefficient in general!
+    strong_convexity(function.strong_convexity());
+
+    // NB: no constraints are needed for the penalty function!
 }
 
 penalty_function_t& penalty_function_t::penalty(scalar_t penalty)
@@ -123,8 +126,8 @@ augmented_lagrangian_function_t::augmented_lagrangian_function_t(const function_
     , m_lambda(lambda)
     , m_miu(miu)
 {
-    assert(m_lambda.size() == count_equalities(function));
-    assert(m_miu.size() == count_inequalities(function));
+    assert(m_lambda.size() == function.n_equalities());
+    assert(m_miu.size() == function.n_inequalities());
 
     convex(::convex(function));
     smooth(::smooth(function));
@@ -139,13 +142,13 @@ scalar_t augmented_lagrangian_function_t::do_vgrad(vector_cmap_t x, vector_map_t
 {
     assert(x.size() == size());
 
-    auto fx      = function().vgrad(x, gx);
+    auto fx      = function()(x, gx);
     auto ilambda = tensor_size_t{0};
     auto imiu    = tensor_size_t{0};
+    auto gc      = vector_t{gx.size()};
 
-    for (const auto& constraint : constraints())
+    for (const auto& constraint : function().constraints())
     {
-        auto       gc = vector_t{gx.size()}; // FIXME: is this allocation really necessary?!
         const auto ro = penalty();
         const auto fc = ::nano::vgrad(constraint, x, gc);
         const auto eq = is_equality(constraint);

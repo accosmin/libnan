@@ -15,7 +15,7 @@ tuner_t::tuner_t(string_t id)
 tuner_steps_t tuner_t::optimize(const param_spaces_t& spaces, const tuner_callback_t& callback,
                                 const logger_t& logger) const
 {
-    critical(spaces.empty(), "tuner: at least one parameter space is needed!");
+    critical(!spaces.empty(), "tuner: at least one parameter space is needed!");
 
     const auto max_evals = parameter("tuner::max_evals").value<size_t>();
     const auto min_igrid = make_min_igrid(spaces);

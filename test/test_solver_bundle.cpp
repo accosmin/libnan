@@ -1,4 +1,4 @@
-#include "fixture/solver.h"
+#include <fixture/solver.h>
 
 using namespace nano;
 
@@ -22,12 +22,12 @@ UTEST_BEGIN_MODULE(test_solver_bundle)
 
 UTEST_CASE(smooth_bundle)
 {
-    check_solvers_on_smooth_functions(make_solvers());
+    check_minimize(make_solvers(), function_t::make({4, 4, convexity::yes, smoothness::yes, 100}));
 }
 
 UTEST_CASE(nonsmooth_bundle)
 {
-    check_solvers_on_nonsmooth_functions(make_solvers());
+    check_minimize(make_solvers(), function_t::make({4, 4, convexity::yes, smoothness::no, 100}));
 }
 
 UTEST_END_MODULE()

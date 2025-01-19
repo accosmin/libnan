@@ -1,8 +1,95 @@
 #include <Eigen/Eigenvalues>
 #include <nano/core/numeric.h>
+#include <nano/core/overloaded.h>
 #include <nano/function/util.h>
+#include <nano/tensor/stack.h>
 
 using namespace nano;
+using namespace constraint;
+
+namespace
+{
+bool reduce(matrix_t& A)
+{
+    // independant linear constraints
+    const auto dd = A.transpose().fullPivLu();
+    if (dd.rank() == A.rows())
+    {
+        return false;
+    }
+
+    // dependant linear constraints, use decomposition to formulate equivalent linear equality constraints
+    const auto& P  = dd.permutationP();
+    const auto& LU = dd.matrixLU();
+
+    const auto n = std::min(A.rows(), A.cols());
+    const auto L = LU.leftCols(n).triangularView<Eigen::UnitLower>().toDenseMatrix();
+    const auto U = LU.topRows(n).triangularView<Eigen::Upper>().toDenseMatrix();
+
+    A = U.transpose().block(0, 0, dd.rank(), U.rows()) * L.transpose() * P;
+    return true;
+}
+
+auto is_linear_constrained(const function_t& function)
+{
+    auto valid  = true;
+    auto neqs   = tensor_size_t{0};
+    auto nineqs = tensor_size_t{0};
+
+    for (const auto& constraint : function.constraints())
+    {
+        std::visit(overloaded{[&](const constant_t&) { ++neqs; },              ///<
+                              [&](const minimum_t&) { ++nineqs; },             ///<
+                              [&](const maximum_t&) { ++nineqs; },             ///<
+                              [&](const linear_equality_t&) { ++neqs; },       ///<
+                              [&](const linear_inequality_t&) { ++nineqs; },   ///<
+                              [&](const euclidean_ball_t&) { valid = false; }, ///<
+                              [&](const quadratic_t&) { valid = false; },      ///<
+                              [&](const functional_t&) { valid = false; }},    ///<
+                   constraint);
+    }
+
+    return std::make_tuple(valid, neqs, nineqs);
+}
+
+void handle(linear_constraints_t& lc, [[maybe_unused]] tensor_size_t& ieq, [[maybe_unused]] tensor_size_t& neq,
+            const constant_t& c)
+{
+    lc.m_A.row(ieq).array()    = 0.0;
+    lc.m_A(ieq, c.m_dimension) = 1.0;
+    lc.m_b(ieq++)              = c.m_value;
+}
+
+void handle(linear_constraints_t& lc, [[maybe_unused]] tensor_size_t& ieq, [[maybe_unused]] tensor_size_t& ineq,
+            const minimum_t& c)
+{
+    lc.m_G.row(ineq).array()    = 0.0;
+    lc.m_G(ineq, c.m_dimension) = -1.0;
+    lc.m_h(ineq++)              = -c.m_value;
+}
+
+void handle(linear_constraints_t& lc, [[maybe_unused]] tensor_size_t& ieq, [[maybe_unused]] tensor_size_t& ineq,
+            const maximum_t& c)
+{
+    lc.m_G.row(ineq).array()    = 0.0;
+    lc.m_G(ineq, c.m_dimension) = 1.0;
+    lc.m_h(ineq++)              = c.m_value;
+}
+
+void handle(linear_constraints_t& lc, [[maybe_unused]] tensor_size_t& ieq, [[maybe_unused]] tensor_size_t& ineq,
+            const linear_equality_t& c)
+{
+    lc.m_A.row(ieq) = c.m_q.transpose();
+    lc.m_b(ieq++)   = -c.m_r;
+}
+
+void handle(linear_constraints_t& lc, [[maybe_unused]] tensor_size_t& ieq, [[maybe_unused]] tensor_size_t& ineq,
+            const linear_inequality_t& c)
+{
+    lc.m_G.row(ineq) = c.m_q.transpose();
+    lc.m_h(ineq++)   = -c.m_r;
+}
+} // namespace
 
 scalar_t nano::grad_accuracy(const function_t& function, const vector_t& x, const scalar_t desired_accuracy)
 {
@@ -16,7 +103,7 @@ scalar_t nano::grad_accuracy(const function_t& function, const vector_t& x, cons
     vector_t gx_approx(n);
 
     // analytical gradient
-    const auto fx = function.vgrad(x, gx);
+    const auto fx = function(x, gx);
     assert(gx.size() == function.size());
 
     // finite-difference approximated gradient
@@ -36,7 +123,7 @@ scalar_t nano::grad_accuracy(const function_t& function, const vector_t& x, cons
             xp(i) = x(i) + dx * std::max(scalar_t{1}, std::fabs(x(i)));
             xn(i) = x(i) - dx * std::max(scalar_t{1}, std::fabs(x(i)));
 
-            const auto dfi = function.vgrad(xp) - function.vgrad(xn);
+            const auto dfi = function(xp) - function(xn);
             const auto dxi = xp(i) - xn(i);
             gx_approx(i)   = dfi / dxi;
 
@@ -61,8 +148,8 @@ bool nano::is_convex(const function_t& function, const vector_t& x1, const vecto
     assert(x1.size() == function.size());
     assert(x2.size() == function.size());
 
-    const auto f1 = function.vgrad(x1);
-    const auto f2 = function.vgrad(x2);
+    const auto f1 = function(x1);
+    const auto f2 = function(x2);
     const auto dx = (x1 - x2).squaredNorm();
 
     assert(std::isfinite(f1));
@@ -76,7 +163,7 @@ bool nano::is_convex(const function_t& function, const vector_t& x1, const vecto
         const auto t2 = 1.0 - t1;
 
         tx = t1 * x1 + t2 * x2;
-        if (function.vgrad(tx) > t1 * f1 + t2 * f2 - t1 * t2 * function.strong_convexity() * 0.5 * dx + epsilon)
+        if (function(tx) > t1 * f1 + t2 * f2 - t1 * t2 * function.strong_convexity() * 0.5 * dx + epsilon)
         {
             return false;
         }
@@ -85,12 +172,39 @@ bool nano::is_convex(const function_t& function, const vector_t& x1, const vecto
     return true;
 }
 
-bool nano::convex(const matrix_t& P)
+bool nano::reduce(matrix_t& A, vector_t& b)
 {
-    const auto eigenvalues         = P.matrix().eigenvalues();
-    const auto positive_eigenvalue = [](const auto& eigenvalue) { return eigenvalue.real() >= 0.0; };
+    assert(A.rows() == b.size());
 
-    return std::all_of(begin(eigenvalues), end(eigenvalues), positive_eigenvalue);
+    if (A.rows() == 0)
+    {
+        return false;
+    }
+
+    // NB: need to reduce [A|b] altogether!
+    auto       Ab      = ::nano::stack<scalar_t>(A.rows(), A.cols() + 1, A.matrix(), b.vector());
+    const auto reduced = ::reduce(Ab);
+
+    A = Ab.block(0, 0, Ab.rows(), Ab.cols() - 1);
+    b = Ab.matrix().col(Ab.cols() - 1);
+    return reduced;
+}
+
+bool nano::is_convex(const matrix_t& P, const scalar_t tol)
+{
+    const auto Q = P.matrix();
+    if (!Q.isApprox(Q.transpose()))
+    {
+        return false;
+    }
+    else
+    {
+        const auto Qmax = std::max(1.0, Q.diagonal().array().maxCoeff());
+        const auto Qtol = Q / Qmax + tol * matrix_t::identity(Q.rows(), Q.cols());
+        const auto ldlt = Qtol.selfadjointView<Eigen::Upper>().ldlt();
+
+        return ldlt.info() == Eigen::Success && ldlt.isPositive();
+    }
 }
 
 scalar_t nano::strong_convexity(const matrix_t& P)
@@ -100,4 +214,78 @@ scalar_t nano::strong_convexity(const matrix_t& P)
 
     const auto* const it = std::min_element(begin(eigenvalues), end(eigenvalues), peigenvalue);
     return std::max(0.0, it->real());
+}
+
+std::optional<vector_t> nano::make_strictly_feasible(const matrix_t& A, const vector_t& b)
+{
+    std::optional<vector_t> ret;
+
+    if (A.rows() == b.size())
+    {
+        const auto ldlt = (A.transpose() * A).ldlt();
+        auto       x    = vector_t{A.cols()};
+        const auto eval = [&](const scalar_t y)
+        {
+            x.vector() = ldlt.solve(A.transpose() * (b + vector_t::constant(A.rows(), -y)));
+            if ((A * x.vector() - b).maxCoeff() < 0.0)
+            {
+                ret = std::move(x);
+                return true;
+            }
+            return false;
+        };
+
+        static constexpr auto gamma  = 0.3;
+        static constexpr auto trials = 100;
+
+        // NB: try both smaller and bigger distances to the edges!
+        auto ym = 1.0;
+        auto yM = 1.0 / gamma;
+        for (auto trial = 0; trial < trials; trial += 2)
+        {
+            if (eval(ym) || eval(yM))
+            {
+                break;
+            }
+            ym *= gamma;
+            yM /= gamma;
+        }
+    }
+
+    return ret;
+}
+
+std::optional<linear_constraints_t> nano::make_linear_constraints(const function_t& function)
+{
+    if (const auto [valid, neqs, nineqs] = is_linear_constrained(function); !valid)
+    {
+        return {};
+    }
+
+    else
+    {
+        auto lc = linear_constraints_t{};
+        lc.m_A  = matrix_t{neqs, function.size()};
+        lc.m_b  = vector_t{neqs};
+        lc.m_G  = matrix_t{nineqs, function.size()};
+        lc.m_h  = vector_t{nineqs};
+
+        auto ieq  = tensor_size_t{0};
+        auto ineq = tensor_size_t{0};
+
+        for (const auto& constraint : function.constraints())
+        {
+            std::visit(overloaded{[&](const constant_t& c) { handle(lc, ieq, ineq, c); },          ///<
+                                  [&](const minimum_t& c) { handle(lc, ieq, ineq, c); },           ///<
+                                  [&](const maximum_t& c) { handle(lc, ieq, ineq, c); },           ///<
+                                  [&](const linear_equality_t& c) { handle(lc, ieq, ineq, c); },   ///<
+                                  [&](const linear_inequality_t& c) { handle(lc, ieq, ineq, c); }, ///<
+                                  [&](const euclidean_ball_t&) {},                                 ///<
+                                  [&](const quadratic_t&) {},                                      ///<
+                                  [&](const functional_t&) {}},                                    ///<
+                       constraint);
+        }
+
+        return lc;
+    }
 }

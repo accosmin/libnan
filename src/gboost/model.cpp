@@ -249,7 +249,7 @@ std::istream& gboost_model_t::read(std::istream& stream)
 {
     learner_t::read(stream);
 
-    critical(!::nano::read(stream, m_bias) || !::nano::read(stream, m_wlearners) || !::nano::read(stream, m_prototypes),
+    critical(::nano::read(stream, m_bias) && ::nano::read(stream, m_wlearners) && ::nano::read(stream, m_prototypes),
              "gboost: failed to read from stream!");
 
     return stream;
@@ -259,8 +259,7 @@ std::ostream& gboost_model_t::write(std::ostream& stream) const
 {
     learner_t::write(stream);
 
-    critical(!::nano::write(stream, m_bias) || !::nano::write(stream, m_wlearners) ||
-                 !::nano::write(stream, m_prototypes),
+    critical(::nano::write(stream, m_bias) && ::nano::write(stream, m_wlearners) && ::nano::write(stream, m_prototypes),
              "gboost: failed to write to stream!");
 
     return stream;
@@ -269,7 +268,7 @@ std::ostream& gboost_model_t::write(std::ostream& stream) const
 ml::result_t gboost_model_t::fit(const dataset_t& dataset, const indices_t& samples, const loss_t& loss,
                                  const ml::params_t& fit_params)
 {
-    critical(m_prototypes.empty(), "gboost: cannot fit without any weak learner!");
+    critical(!m_prototypes.empty(), "gboost: cannot fit without any weak learner!");
 
     // tune hyper-parameters (if any)
     const auto callback = [&](const indices_t& train_samples, const indices_t& valid_samples,

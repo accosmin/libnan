@@ -148,7 +148,7 @@ void datasource_t::load()
     {
         visit_target(
             [&](const feature_t&, const auto&, const auto& mask) {
-                critical(::nano::optional(mask, samples()), "datasource[", type_id(),
+                critical(!::nano::optional(mask, samples()), "datasource[", type_id(),
                          "]: the target cannot be optional!");
             });
     }

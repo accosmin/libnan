@@ -7,7 +7,6 @@ solver_lbfgs_t::solver_lbfgs_t()
     : solver_t("lbfgs")
 {
     lsearchk("cgdescent");
-    type(solver_type::line_search);
     parameter("solver::tolerance") = std::make_tuple(1e-4, 9e-1);
 
     register_parameter(parameter_t::make_integer("solver::lbfgs::history", 1, LE, 20, LE, 1000));
@@ -20,18 +19,15 @@ rsolver_t solver_lbfgs_t::clone() const
 
 solver_state_t solver_lbfgs_t::do_minimize(const function_t& function, const vector_t& x0, const logger_t& logger) const
 {
+    solver_t::warn_nonsmooth(function, logger);
+    solver_t::warn_constrained(function, logger);
+
     const auto max_evals = parameter("solver::max_evals").value<tensor_size_t>();
-    const auto epsilon   = parameter("solver::epsilon").value<scalar_t>();
     const auto history   = parameter("solver::lbfgs::history").value<size_t>();
 
-    auto cstate = solver_state_t{function, x0}; // current state
-    if (solver_t::done(cstate, true, cstate.gradient_test() < epsilon, logger))
-    {
-        return cstate;
-    }
-
+    auto cstate  = solver_state_t{function, x0}; // current state
+    auto pstate  = cstate;                       // previous state
     auto lsearch = make_lsearch();
-    auto pstate  = cstate; // previous state
 
     vector_t             q, r;
     std::deque<vector_t> ss, ys;
@@ -89,8 +85,7 @@ solver_state_t solver_lbfgs_t::do_minimize(const function_t& function, const vec
         // line-search
         pstate               = cstate;
         const auto iter_ok   = lsearch.get(cstate, descent, logger);
-        const auto converged = cstate.gradient_test() < epsilon;
-        if (solver_t::done(cstate, iter_ok, converged, logger))
+        if (solver_t::done_gradient_test(cstate, iter_ok, logger))
         {
             break;
         }

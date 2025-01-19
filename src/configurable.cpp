@@ -11,7 +11,7 @@ parameter_t* find_param(parameters_t& parameters, const std::string_view name, c
     const auto it = std::find_if(parameters.begin(), parameters.end(),
                                  [&](const parameter_t& param) { return param.name() == name; });
 
-    critical(mandatory && (it == parameters.end()), "configurable: cannot find mandatory parameter (", name, ")!");
+    critical(!mandatory || it != parameters.end(), "configurable: cannot find mandatory parameter (", name, ")!");
 
     return (it == parameters.end()) ? nullptr : (&*it);
 }
@@ -21,7 +21,7 @@ const parameter_t* find_param(const parameters_t& parameters, const std::string_
     const auto it = std::find_if(parameters.begin(), parameters.end(),
                                  [&](const parameter_t& param) { return param.name() == name; });
 
-    critical(mandatory && (it == parameters.end()), "configurable: cannot find mandatory parameter (", name, ")!");
+    critical(!mandatory || it != parameters.end(), "configurable: cannot find mandatory parameter (", name, ")!");
 
     return (it == parameters.end()) ? nullptr : (&*it);
 }
@@ -29,7 +29,7 @@ const parameter_t* find_param(const parameters_t& parameters, const std::string_
 
 void configurable_t::register_parameter(parameter_t parameter)
 {
-    critical(parameter_if(parameter.name()), "configurable: cannot register duplicated parameter (", parameter.name(),
+    critical(!parameter_if(parameter.name()), "configurable: cannot register duplicated parameter (", parameter.name(),
              ")!");
 
     m_parameters.emplace_back(std::move(parameter));
@@ -57,28 +57,28 @@ const parameter_t* configurable_t::parameter_if(const std::string_view name) con
 
 std::istream& configurable_t::read(std::istream& stream)
 {
-    critical(!::nano::read(stream, m_major_version) || !::nano::read(stream, m_minor_version) ||
-                 !::nano::read(stream, m_patch_version),
-             "configurable: failed to read from stream!");
+    critical(::nano::read(stream, m_major_version) && ::nano::read(stream, m_minor_version) &&
+                 ::nano::read(stream, m_patch_version),
+             "configurable: failed to read version from stream!");
 
-    critical(m_major_version > nano::major_version ||
-                 (m_major_version == nano::major_version && m_minor_version > nano::minor_version) ||
+    critical(m_major_version < nano::major_version ||
+                 (m_major_version == nano::major_version && m_minor_version < nano::minor_version) ||
                  (m_major_version == nano::major_version && m_minor_version == nano::minor_version &&
-                  m_patch_version > nano::patch_version),
+                  m_patch_version <= nano::patch_version),
              "configurable: version mismatch!");
 
-    critical(!::nano::read(stream, m_parameters), "configurable: failed to read from stream!");
+    critical(::nano::read(stream, m_parameters), "configurable: failed to read parameters from stream!");
 
     return stream;
 }
 
 std::ostream& configurable_t::write(std::ostream& stream) const
 {
-    critical(!::nano::write(stream, nano::major_version) || !::nano::write(stream, nano::minor_version) ||
-                 !::nano::write(stream, nano::patch_version),
-             "configurable: failed to write to stream");
+    critical(::nano::write(stream, nano::major_version) && ::nano::write(stream, nano::minor_version) &&
+                 ::nano::write(stream, nano::patch_version),
+             "configurable: failed to write version to stream");
 
-    critical(!::nano::write(stream, m_parameters), "configurable: failed to write to stream!");
+    critical(::nano::write(stream, m_parameters), "configurable: failed to write parameters to stream!");
 
     return stream;
 }

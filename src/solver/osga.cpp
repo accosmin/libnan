@@ -44,14 +44,11 @@ private:
 solver_osga_t::solver_osga_t()
     : solver_t("osga")
 {
-    type(solver_type::non_monotonic);
-
     static constexpr auto fmax = std::numeric_limits<scalar_t>::max();
 
     register_parameter(parameter_t::make_scalar("solver::osga::lambda", 0, LT, 0.9, LT, 1));
     register_parameter(parameter_t::make_scalar("solver::osga::alpha_max", 0, LT, 0.7, LT, 1));
     register_parameter(parameter_t::make_scalar_pair("solver::osga::kappas", 0, LT, 0.1, LE, 1.1, LE, fmax));
-    register_parameter(parameter_t::make_integer("solver::osga::patience", 10, LE, 1000, LE, 1e+6));
 }
 
 rsolver_t solver_osga_t::clone() const
@@ -61,12 +58,14 @@ rsolver_t solver_osga_t::clone() const
 
 solver_state_t solver_osga_t::do_minimize(const function_t& function, const vector_t& x0, const logger_t& logger) const
 {
+    warn_nonconvex(function, logger);
+    warn_constrained(function, logger);
+
     const auto epsilon              = parameter("solver::epsilon").value<scalar_t>();
     const auto max_evals            = parameter("solver::max_evals").value<int>();
     const auto lambda               = parameter("solver::osga::lambda").value<scalar_t>();
     const auto alpha_max            = parameter("solver::osga::alpha_max").value<scalar_t>();
     const auto [kappa_prime, kappa] = parameter("solver::osga::kappas").value_pair<scalar_t>();
-    const auto patience             = parameter("solver::osga::patience").value<tensor_size_t>();
 
     const auto miu   = function.strong_convexity() / 2.0;
     const auto proxy = proxy_t{x0};
@@ -93,16 +92,13 @@ solver_state_t solver_osga_t::do_minimize(const function_t& function, const vect
     {
         if (state.gx().lpNorm<Eigen::Infinity>() < epsilon0<scalar_t>())
         {
-            const auto converged = true;
-            const auto iter_ok   = state.valid();
-            if (solver_t::done(state, iter_ok, converged, logger))
-            {
-                break;
-            }
+            const auto iter_ok = state.valid();
+            solver_t::done_gradient_test(state, iter_ok, logger);
+            break;
         }
 
         x            = xb + alpha * (u - xb);
-        const auto f = function.vgrad(x, g);
+        const auto f = function(x, g);
         g            = g - miu * proxy.gQ(x);
 
         h_hat                = h + alpha * (g - h);
@@ -113,7 +109,7 @@ solver_state_t solver_osga_t::do_minimize(const function_t& function, const vect
 
         u_prime            = proxy.U(gamma_hat - fb_prime, h_hat);
         x_prime            = xb + alpha * (u_prime - xb);
-        const auto f_prime = function.vgrad(x_prime);
+        const auto f_prime = function(x_prime);
 
         const auto& xb_hat = (f_prime < fb_prime) ? x_prime : xb_prime;
         const auto& fb_hat = (f_prime < fb_prime) ? f_prime : fb_prime;
@@ -125,8 +121,8 @@ solver_state_t solver_osga_t::do_minimize(const function_t& function, const vect
 
         // check convergence
         const auto iter_ok   = state.valid();
-        const auto converged = eta_hat < epsilon || state.value_test(patience) < epsilon;
-        if (solver_t::done(state, iter_ok, converged, logger))
+        const auto converged = eta_hat < epsilon;
+        if (done_specific_test(state, iter_ok, converged, logger) || done_value_test(state, iter_ok, logger))
         {
             break;
         }

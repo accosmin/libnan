@@ -35,10 +35,10 @@ void base_mnist_datasource_t::do_load()
     for (const auto& [ifile, tfile, offset, expected] : parts)
     {
         log_info("[", type_id(), "]: loading file <", ifile, ">...");
-        critical(!iread(ifile, offset, expected), "datasource[", type_id(), "]: failed to load file <", ifile, ">!");
+        critical(iread(ifile, offset, expected), "datasource[", type_id(), "]: failed to load file <", ifile, ">!");
 
         log_info("[", type_id(), "]: loading file <", tfile, ">...");
-        critical(!tread(tfile, offset, expected), "datasource[", type_id(), "]: failed to load file <", tfile, ">!");
+        critical(tread(tfile, offset, expected), "datasource[", type_id(), "]: failed to load file <", tfile, ">!");
 
         sample += expected;
         log_info("[", type_id(), "]: loaded ", sample, " samples.");

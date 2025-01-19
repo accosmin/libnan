@@ -9,8 +9,6 @@ template <class tsampler, class tpreconditioner>
 base_solver_gs_t<tsampler, tpreconditioner>::base_solver_gs_t()
     : solver_t(scat(tsampler::str(), tpreconditioner::str()))
 {
-    type(solver_type::non_monotonic);
-
     const auto basename = scat("solver::", type_id(), "::");
 
     register_parameter(parameter_t::make_scalar(basename + "miu0", 0, LE, 1e-6, LT, 1e+6));
@@ -34,6 +32,9 @@ template <class tsampler, class tpreconditioner>
 solver_state_t base_solver_gs_t<tsampler, tpreconditioner>::do_minimize(const function_t& function, const vector_t& x0,
                                                                         const logger_t& logger) const
 {
+    warn_nonconvex(function, logger);
+    warn_constrained(function, logger);
+
     const auto basename      = scat("solver::", type_id(), "::");
     const auto max_evals     = parameter("solver::max_evals").template value<tensor_size_t>();
     const auto epsilon       = parameter("solver::epsilon").template value<scalar_t>();
@@ -67,7 +68,7 @@ solver_state_t base_solver_gs_t<tsampler, tpreconditioner>::do_minimize(const fu
         // check convergence
         const auto iter_ok   = g.all_finite() && epsilonk > std::numeric_limits<scalar_t>::epsilon();
         const auto converged = state.gradient_test(g) < epsilon && epsilonk < epsilon;
-        if (solver_t::done(state, iter_ok, converged, logger))
+        if (solver_t::done_specific_test(state, iter_ok, converged, logger))
         {
             break;
         }

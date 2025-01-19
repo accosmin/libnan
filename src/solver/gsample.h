@@ -12,7 +12,7 @@ namespace nano
 /// see (3) "The gradient sampling methodology", by Burke, Curtis, Lewis, Overton, 2018
 /// see (4) "Two numerical methods for optimizing matrix stability", by Burke, Lewis, Overton, 2002
 /// see (5) "An adaptive gradient sampling algorithm for nonsmooth optimization", by Curtis, Quez, 2013
-/// see (6) "On the differentiability check in gradient sampling methpds", by Helou, Santos, Simeos, 2016
+/// see (6) "On the differentiability check in gradient sampling methods", by Helou, Santos, Simeos, 2016
 ///
 /// NB: particularly useful for minimizing non-smooth (convex) problems.
 /// NB: strong theoretical guarantees with a practical and theoretically-motivated stopping criterion.

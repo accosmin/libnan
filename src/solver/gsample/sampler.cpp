@@ -1,4 +1,7 @@
 #include <nano/core/sampling.h>
+#include <nano/critical.h>
+#include <nano/function/bounds.h>
+#include <nano/function/cuts.h>
 #include <nano/tensor/algorithm.h>
 #include <solver/gsample/sampler.h>
 
@@ -8,14 +11,18 @@ using namespace nano::gsample;
 sampler_t::sampler_t(const tensor_size_t n)
     : m_X(2 * n + 1, n)
     , m_G(2 * n + 1, n)
+    , m_solver(solver_t::all().get("ipm"))
 {
 }
 
-program::quadratic_program_t sampler_t::make_program(const tensor_size_t p)
+quadratic_program_t sampler_t::make_program(const tensor_size_t p)
 {
-    const auto positive = program::make_greater(p, 0.0);
-    const auto weighted = program::make_equality(vector_t::constant(p, 1.0), 1.0);
-    return program::make_quadratic(matrix_t::zero(p, p), vector_t::zero(p), positive, weighted);
+    auto program = quadratic_program_t{"gsample-qp", matrix_t{matrix_t::zero(p, p)}, vector_t{vector_t::zero(p)}};
+
+    critical(program.variable() >= 0.0);
+    critical(vector_t::constant(p, 1.0) * program.variable() == 1.0);
+
+    return program;
 }
 
 fixed_sampler_t::fixed_sampler_t(const tensor_size_t n)
@@ -34,7 +41,7 @@ void fixed_sampler_t::sample(const solver_state_t& state, const scalar_t epsilon
     {
         sample_from_ball(state.x(), epsilon, m_X.tensor(i), rng);
         assert((state.x() - m_X.tensor(i)).lpNorm<2>() <= epsilon + std::numeric_limits<scalar_t>::epsilon());
-        state.function().vgrad(m_X.tensor(i), m_G.tensor(i));
+        state.function()(m_X.tensor(i), m_G.tensor(i));
     }
 
     m_X.tensor(m) = state.x();
@@ -76,7 +83,7 @@ void adaptive_sampler_t::sample(const solver_state_t& state, const scalar_t epsi
     {
         assert(m_psize < p);
         sample_from_ball(state.x(), epsilon, m_X.tensor(m_psize), rng);
-        state.function().vgrad(m_X.tensor(m_psize), m_G.tensor(m_psize));
+        state.function()(m_X.tensor(m_psize), m_G.tensor(m_psize));
     }
 
     for (tensor_size_t i = 0; i < m_psize; ++i)

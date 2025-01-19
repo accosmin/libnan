@@ -56,8 +56,8 @@ UTEST_BEGIN_MODULE(test_logger)
 
 UTEST_CASE(critical)
 {
-    UTEST_CHECK_NOTHROW(critical(false, "message\n"));
-    UTEST_CHECK_THROW(critical(true, "message\n"), std::runtime_error);
+    UTEST_CHECK_NOTHROW(critical(true, "message\n"));
+    UTEST_CHECK_THROW(critical(false, "message\n"), std::runtime_error);
 }
 
 UTEST_CASE(main)
